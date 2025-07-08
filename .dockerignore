@@ -1,0 +1,29 @@
+# Ignore common clutter
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+.DS_Store
+*.log
+.env
+.venv/
+venv/
+.git/
+.vscode/
+.idea/
+
+# Ignore temporary files
+*.dbmdl
+*.jfm
+
+# Keep Docker-related files
+# (Do NOT ignore Dockerfile or docker-compose*)
+# Remove these if present:
+# **/Dockerfile*
+# **/docker-compose*
+
+# Ignore compiled binaries
+bin/
+obj/
+node_modules/

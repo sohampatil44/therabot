@@ -1,12 +1,19 @@
-tensorflow-cpu
-numpy
-matplotlib
-pillow
-pandas
-pysimplegui
-scikit-learn
-gunicorn
-tqdm
-wget
-Flask
-fastai
+# Use even newer versions to satisfy all dependencies
+tensorflow==2.15.0
+numpy>=1.24.0,<2.0.0
+matplotlib==3.7.1
+pillow==10.0.0
+pandas==2.0.3
+scikit-learn==1.3.0
+tqdm==4.65.0
+wget==3.2
+
+# GUI and Web
+PySimpleGUI==5.0.8.3
+Flask==2.3.0
+gunicorn==21.0.0
+
+# Use torch and torchvision first, then fastai
+torch==2.0.1
+torchvision==0.15.2
+fastai==2.7.12
