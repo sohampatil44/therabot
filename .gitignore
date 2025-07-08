@@ -53,3 +53,4 @@ myenv/
 *.dylib
 .terraform/
 .terraform/
+**/site-packages/
