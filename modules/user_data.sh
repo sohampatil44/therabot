@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 1. Update system and install required packages
+# 1. Install Docker & Git
 yum update -y
 yum install -y docker git
 
@@ -8,21 +8,27 @@ yum install -y docker git
 systemctl start docker
 systemctl enable docker
 
-# 3. Add ec2-user to docker group (to avoid using sudo every time)
+# 3. Add ec2-user to docker group
 usermod -aG docker ec2-user
 
-# 4. Install Docker Compose v2 (latest stable as of now)
-DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
-mkdir -p $DOCKER_CONFIG/cli-plugins
-curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o $DOCKER_CONFIG/cli-plugins/docker-compose
-chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+# 4. Install Docker Compose plugin
+runuser -l ec2-user -c '
+  mkdir -p ~/.docker/cli-plugins
+  curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 \
+    -o ~/.docker/cli-plugins/docker-compose
+  chmod +x ~/.docker/cli-plugins/docker-compose
+  echo "export PATH=\$PATH:\$HOME/.docker/cli-plugins" >> ~/.bashrc
+'
 
-# 5. Verify docker compose is working
-docker compose version
+# 5. Clone repo as ec2-user
+runuser -l ec2-user -c '
+  cd ~
+  git clone https://github.com/sohampatil44/ripensense.git
+'
 
-# 6. Clone your project repo
-git clone https://github.com/sohampatil44/ripensense.git
-cd ripensense 
-
-# 7. Build and run using Compose
-docker compose up --build -d
+# 6. Run Docker Compose in a **login shell with updated group**
+su - ec2-user -c '
+  export PATH=$PATH:$HOME/.docker/cli-plugins
+  cd ~/ripensense
+  docker compose up --build -d
+'
