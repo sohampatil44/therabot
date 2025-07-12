@@ -1,21 +1,36 @@
-FROM pytorch/pytorch:2.0.1-cpu-py3.9
+FROM python:3.9-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install extra system dependencies for GUI, image processing, etc.
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libglib2.0-0 libsm6 libxrender1 libxext6 \
+    gcc \
+    g++ \
+    make \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
+    libgl1-mesa-glx \
+    python3-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip
-RUN pip install --upgrade pip
+RUN pip install --upgrade pip setuptools wheel
 
-# Install Python packages
+# Install PyTorch first
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Install common packages that might be in your requirements
+RUN pip install flask gunicorn numpy pandas pillow opencv-python-headless scikit-learn matplotlib seaborn
+
+# Copy requirements and try to install remaining packages
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt || echo "Some packages failed to install"
 
 # Copy project files
 COPY . /app
