@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.0.1-cpu
+FROM pytorch/pytorch:2.0.1-cpu-py3.9
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
