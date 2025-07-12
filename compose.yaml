@@ -1,10 +1,7 @@
+version: '3.8'
+
 services:
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: soham444/ripensense:latest
     ports:
       - "8000:8000"
-    volumes:
-      - .:/app
-    restart: always
