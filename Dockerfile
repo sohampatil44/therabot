@@ -22,19 +22,18 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip
 RUN pip install --upgrade pip setuptools wheel
 
-# Install PyTorch first
+# Install PyTorch
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
-# Install common packages that might be in your requirements
+# Install common packages
 RUN pip install flask gunicorn numpy pandas pillow opencv-python-headless scikit-learn matplotlib seaborn
 
-# Copy requirements and try to install remaining packages
+# Copy and install requirements
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt || echo "Some packages failed to install"
+RUN pip install --no-cache-dir -r requirements.txt || echo "Warning: Some packages failed to install, check requirements.txt"
 
 # Copy project files
 COPY . /app
-COPY ripeness.h5 /app/ripeness.h5
 
 # Create non-root user
 RUN useradd -m appuser
