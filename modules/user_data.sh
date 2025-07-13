@@ -15,13 +15,11 @@ systemctl enable docker
 # Add ec2-user to docker group
 usermod -aG docker ec2-user
 
-# Install Docker Compose
-runuser -l ec2-user -c '
-  mkdir -p ~/.docker/cli-plugins
-  curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 \
-    -o ~/.docker/cli-plugins/docker-compose
-  chmod +x ~/.docker/cli-plugins/docker-compose
-'
+# Install Docker Compose system-wide (recommended way)
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 # Clone and setup repo
 runuser -l ec2-user -c '
@@ -35,11 +33,9 @@ runuser -l ec2-user -c '
 # Create start_app.sh
 cat > /home/ec2-user/start_app.sh << 'EOF'
 #!/bin/bash
-export PATH=$PATH:$HOME/.docker/cli-plugins
 cd ~/ripensense
-docker compose down
-docker builder prune -a
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 EOF
 
 chown ec2-user:ec2-user /home/ec2-user/start_app.sh
