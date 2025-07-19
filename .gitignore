@@ -46,6 +46,14 @@ terraform.tfstate.d/
 *.dylib
 
 # DO NOT IGNORE these – needed for app to run
-!fruit_recognizer.pkl
-!ripeness.h5
+
 !user_data.sh
+
+## im ignoring this to chekc if error gets solved 
+
+*.tar
+*.zip
+*.h5
+*.pkl
+*.pt
+__pycache__/
