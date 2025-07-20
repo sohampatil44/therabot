@@ -5,6 +5,9 @@ resource "aws_instance" "ec21" {
     vpc_security_group_ids = [var.security_group_id]
     key_name= var.key_name
     associate_public_ip_address  = true
+    credit_specification {
+      cpu_credits = "unlimited"
+    }
     root_block_device {
       volume_size = 20
       volume_type = "gp2"

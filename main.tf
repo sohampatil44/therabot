@@ -35,7 +35,7 @@ module "security_group" {
 module "ec2" {
     source = "./modules/ec2"
     ami_id = "ami-09d457dbc96bc7a61"
-    instance_type = "t2.micro"
+    instance_type = "t3.micro"
     key_name = var.key_name
     security_group_id = module.security_group.security_group_id
     subnet_id = module.subnet.subnet_id
