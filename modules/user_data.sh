@@ -89,6 +89,13 @@ cd ripensense || exit 1
 git lfs pull
 export PATH=$PATH:$HOME/.docker/cli-plugins
 
+# Inject override config to limit Gunicorn workers to 1
+cat > docker-compose.override.yml <<EOL
+services:
+  backend:
+    command: gunicorn --workers=1 --bind 0.0.0.0:8000 app:app
+EOL
+
 docker compose pull || echo "Compose pull failed"
 docker compose up -d || echo "Compose up failed"
 
