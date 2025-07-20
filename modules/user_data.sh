@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Update system
+# Update and install packages
 yum update -y
 yum install -y docker git amazon-efs-utils
 
@@ -8,8 +8,10 @@ yum install -y docker git amazon-efs-utils
 curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.rpm.sh | bash
 yum install -y git-lfs
 
+# Variables
 DEVICE="/dev/xvdf"
 MOUNT_POINT="/mnt/docker-storage"
+REPO_DIR="/root/ripensense"  # Since you're SSH-ing as root
 
 # Wait for volume to attach
 while [ ! -b $DEVICE ]; do
@@ -17,7 +19,7 @@ while [ ! -b $DEVICE ]; do
   sleep 2
 done
 
-# Mount the device
+# Mount the volume
 if ! mount | grep -q "$MOUNT_POINT"; then
   mkdir -p $MOUNT_POINT
   if ! blkid $DEVICE | grep -q ext4; then
@@ -28,7 +30,7 @@ if ! mount | grep -q "$MOUNT_POINT"; then
   grep -q "$UUID" /etc/fstab || echo "UUID=$UUID $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
 fi
 
-# Configure Docker to use mounted storage
+# Configure Docker to use new storage
 mkdir -p $MOUNT_POINT/docker
 mkdir -p /etc/docker
 cat > /etc/docker/daemon.json <<EOL
@@ -42,36 +44,29 @@ systemctl daemon-reexec
 systemctl enable docker
 systemctl start docker
 
-# Wait for Docker to become ready
+# Wait for Docker to start
 until docker info >/dev/null 2>&1; do
   echo "Waiting for Docker to start..."
   sleep 2
 done
 
-usermod -aG docker ec2-user
+# Install Docker Compose globally
+mkdir -p /usr/libexec/docker/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/libexec/docker/cli-plugins/docker-compose
+chmod +x /usr/libexec/docker/cli-plugins/docker-compose
+ln -sf /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
 
-# Install Docker Compose
-sudo -u ec2-user bash <<'EOF'
-mkdir -p ~/.docker/cli-plugins
-curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
-chmod +x ~/.docker/cli-plugins/docker-compose
-EOF
-
-# Clone repo and run app
-sudo -u ec2-user bash <<'EOF'
-cd ~
+# Clone repo and start app as root
+cd /root
 git lfs install
 git clone https://github.com/sohampatil44/ripensense.git
 cd ripensense
 git lfs pull
 
-export PATH=$PATH:$HOME/.docker/cli-plugins
-
 # Start app
 docker compose pull
 docker compose up -d
 
-# Log container status
-docker ps -a > ~/container-status.log
-docker compose logs --no-color > ~/docker-startup.log 2>&1 &
-EOF
+# Log output
+docker ps -a > /root/container-status.log
+docker compose logs --no-color > /root/docker-startup.log 2>&1
