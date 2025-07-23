@@ -5,8 +5,7 @@ services:
     container_name: therabot_flask_app
     ports:
       - "8000:8000"
-    env_file:
-      - .env
+    env_file: .env
 
     restart: on-failure:3
     healthcheck:
