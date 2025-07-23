@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="auth-container">
+    <h2>{% if signup %}Sign Up{% else %}Login{% endif %}</h2>
+    <form method="post">
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">{% if signup %}Sign Up{% else %}Login{% endif %}</button>
+    </form>
+    {% if not signup %}
+    <p>Don't have an account? <a href="{{ url_for('main.signup') }}">Sign Up</a></p>
+    {% else %}
+    <p>Already have an account? <a href="{{ url_for('main.login') }}">Login</a></p>
+    {% endif %}
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      <ul class="flashes">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    {% endwith %}
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="content-container faq-container fade-in">
+    <h2>Frequently Asked Questions</h2>
+    <p style="text-align: center; margin-bottom: 30px; color: #555;">Find answers to common questions about Therabot.</p>
+
+    <ul class="faq-list">
+        <li class="faq-item">
+            <div class="faq-question">What is Therabot?</div>
+            <div class="faq-answer">
+                <p>Therabot is a cozy, AI-driven chatbot designed to provide empathetic therapeutic conversation and mental wellbeing support. It's here to listen and offer guidance based on your input.</p>
+            </div>
+        </li>
+        <li class="faq-item">
+            <div class="faq-question">How does Therabot work?</div>
+            <div class="faq-answer">
+                <p>It uses Natural Language Processing (NLP) models to understand the emotion and context in your messages. Based on this, it retrieves relevant information and generates a thoughtful, supportive response using AI.</p>
+            </div>
+        </li>
+        <li class="faq-item">
+            <div class="faq-question">Is my data safe and private?</div>
+            <div class="faq-answer">
+                <p>Your privacy is important. Conversations are processed securely. While we use advanced models, remember Therabot is not a replacement for professional human therapy. User authentication protects your session.</p>
+            </div>
+        </li>
+         <li class="faq-item">
+            <div class="faq-question">Can Therabot diagnose conditions?</div>
+            <div class="faq-answer">
+                <p>No, Therabot is an AI assistant for emotional support and conversation. It cannot provide medical diagnoses, treatment plans, or crisis intervention. If you need medical advice or are in crisis, please contact a qualified healthcare professional or a crisis hotline immediately.</p>
+            </div>
+        </li>
+        </ul>
+</div>
+
+{# Removed the duplicate inline script block from here #}
+{% endblock %}

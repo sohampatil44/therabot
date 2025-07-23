@@ -1,0 +1,86 @@
+# Therabot Setup and Running Instructions
+
+## Prerequisites
+- Python 3.9 or higher
+- pip (Python package installer)
+
+## Setup Instructions
+
+### 1. Install Dependencies
+```
+pip install -r requirements.txt
+```
+
+### 2. Initialize the Database
+```
+flask init-db
+
+# Windows
+python -m app.db
+
+# macOS/Linux
+python3 -m app.db
+```
+
+### 3. Run the Application
+```
+python -m flask run 
+
+# Windows
+python main.py
+
+# macOS/Linux
+python3 main.py
+```
+
+### 4. Access the Application
+Open a web browser and navigate to:
+```
+http://127.0.0.1:5000
+```
+
+## Usage Instructions
+
+1. **Create an Account**: Click "Sign Up" on the home page to register.
+   
+2. **Login**: Use your credentials to log in to the system.
+   
+3. **Chat with Therabot**: Once logged in, you'll be directed to the chat interface where you can talk with Therabot.
+   
+4. **Special Commands**:
+   - Type "play rain" or mention "rain sound" to play calming rain sounds
+   - Type "stop music" to stop the rain sound
+   - Use the volume slider to adjust the sound volume
+   
+5. **Access Resources**: Navigate to the Resources section for helpful external resources.
+
+6. **FAQ**: Check the FAQ section for answers to common questions.
+
+7. **End Chat**: Type "exit" or "quit" to end the current chat session.
+
+## Features
+
+- **Emotion Detection**: Therabot detects emotions in your messages and responds accordingly.
+- **Soothing Rain Sound**: Request rain sounds for relaxation during your chat.
+- **Volume Control**: Adjust the volume of the rain sounds with the slider.
+- **Crisis Resources**: Therabot provides crisis resources when distress is detected.
+- **Chat History**: Your conversation history is saved for continuity.
+- **Dark/Light Mode**: Toggle between dark and light themes using the theme button.
+
+## Troubleshooting
+
+- **Models Not Loading**: Ensure you have sufficient RAM and that all dependencies were installed correctly.
+- **Database Issues**: If encountering database errors, try reinitializing the database.
+- **Audio Not Working**: Check that your browser allows audio playback and that the rain.mp3 file exists in the app/static/audio directory.
+
+## File Structure Overview
+
+- `main.py`: Entry point for the application
+- `emotion_chatbot.py`: Core chatbot logic and emotion detection
+- `knowledge_base.json`: Knowledge base for the chatbot responses
+- `app/`: Flask application directory
+  - `routes.py`: HTTP routes and request handling
+  - `models.py`: Data models
+  - `db.py`: Database configuration
+  - `static/`: Static files (CSS, JS, images, audio)
+  - `templates/`: HTML templates

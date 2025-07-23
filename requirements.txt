@@ -1,4 +1,3 @@
-# Use even newer versions to satisfy all dependencies
 tensorflow==2.15.0
 numpy>=1.24.0,<2.0.0
 matplotlib==3.7.1
@@ -11,8 +10,11 @@ wget==3.2
 # GUI and Web
 Flask==2.3.0
 gunicorn==21.0.0
+flask-login==0.6.3
+python-dotenv==1.0.0
+click==8.1.3
 
-# Use torch and torchvision first, then fastai
+# PyTorch & FastAI
 torch==2.0.1
 torchvision==0.15.2
 fastai==2.7.12

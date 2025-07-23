@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to Therabot{% endblock %}
+
+{% block content %}
+<div class="landing-container content-container fade-in">
+
+    <section class="hero-section">
+        <div class="hero-text">
+            <h2>Your Empathetic AI Companion</h2>
+            <p>Therabot offers a safe space for reflection and conversation. Explore emotional insights and find supportive resources, anytime you need.</p>
+            {% if not current_user.is_authenticated %}
+                <div class="hero-buttons">
+                    <a href="{{ url_for('main.signup') }}" class="btn btn-primary">Get Started</a>
+                    <a href="{{ url_for('main.login') }}" class="btn btn-secondary">Login</a>
+                </div>
+            {% else %}
+                 <div class="hero-buttons">
+                    <a href="{{ url_for('main.chat') }}" class="btn btn-primary">Start Chatting</a>
+                </div>
+            {% endif %}
+        </div>
+        <div class="hero-image">
+            <img src="{{ url_for('static', filename='images/robot_heart.png') }}" alt="Therabot supportive visual">
+        </div>
+    </section>
+
+    <section class="features-section">
+        <h2>How Therabot Helps</h2>
+        <div class="features-grid">
+            <div class="feature-item">
+                <div class="feature-icon">💬</div> <h3>Empathetic Chat</h3>
+                <p>Engage in thoughtful conversations. Therabot listens and responds with understanding, powered by AI emotion detection.</p>
+                 <a href="{{ url_for('main.chat') }}" class="feature-link">Try the Chat</a>
+           </div>
+            <div class="feature-item">
+                <div class="feature-icon">📚</div> <h3>Curated Resources</h3>
+                <p>Access helpful articles, videos, and tools related to mental wellbeing, all in one place.</p>
+                 <a href="{{ url_for('main.resources') }}" class="feature-link">Explore Resources</a>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">❓</div> <h3>Common Questions</h3>
+                <p>Find answers to frequently asked questions about how Therabot works and its features.</p>
+                 <a href="{{ url_for('main.faq') }}" class="feature-link">View FAQ</a>
+            </div>
+             <div class="feature-item">
+                <div class="feature-icon">🔒</div> <h3>Privacy Focused</h3>
+                <p>Your conversations are handled securely. Sign up for a free account to save your progress.</p>
+                 {% if not current_user.is_authenticated %}
+                 <a href="{{ url_for('main.signup') }}" class="feature-link">Sign Up Now</a>
+                 {% endif %}
+            </div>
+        </div>
+    </section>
+
+     {% if not current_user.is_authenticated %}
+    <section class="cta-section">
+        <h2>Ready to Begin?</h2>
+        <p>Create your free account to start your personalized journey with Therabot.</p>
+        <a href="{{ url_for('main.signup') }}" class="btn btn-primary btn-large">Sign Up for Free</a>
+    </section>
+    {% endif %}
+
+</div>
+{% endblock %}

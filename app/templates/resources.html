@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="content-container resources-container fade-in">
+    <h2>Mental Health Resources</h2>
+    <div class="resources-intro">
+        <p>Explore these curated resources for insights, techniques, and support on your mental wellbeing journey. Remember, these are for informational purposes and not a substitute for professional advice.</p>
+        <img src="{{ url_for('static', filename='images/therapy.jpeg') }}" alt="Therabot supportive visual" class="therapy-img">
+    </div>
+
+    <div class="resources-grid">
+        <div class="resource-card video">
+            <div class="resource-placeholder-img">Video Resource</div>
+            <div class="resource-content">
+                <h3>Understanding Anxiety</h3>
+                <p>A helpful video explaining the basics of anxiety and simple coping mechanisms. (Source: Reputable YT Channel)</p>
+                {# Updated link as requested #}
+                <a href="https://www.youtube.com/@TherapyinaNutshell" class="resource-link" target="_blank" rel="noopener noreferrer">Watch Video</a>
+            </div>
+        </div>
+
+        <div class="resource-card article">
+            <div class="resource-placeholder-img">Article / Guide</div>
+            <div class="resource-content">
+                <h3>Mindfulness for Beginners</h3>
+                <p>An introductory article on practicing mindfulness to reduce stress and improve focus. (Source: Health Website)</p>
+                {# Updated link as requested #}
+                <a href="https://www.emedihealth.com/mental-health/blogs-stress-relief" class="resource-link" target="_blank" rel="noopener noreferrer">Read Article</a>
+            </div>
+        </div>
+
+        <div class="resource-card book">
+            <div class="resource-placeholder-img">Book Suggestion</div>
+            <div class="resource-content">
+                <h3>"Feeling Good" by David Burns</h3>
+                <p>A highly recommended book on Cognitive Behavioral Therapy (CBT) techniques for managing mood.</p>
+                {# Updated link to a general Amazon search result page for the book #}
+                <a href="https://www.amazon.com/Feeling-Good-New-Mood-Therapy/dp/0380731762" class="resource-link" target="_blank" rel="noopener noreferrer">Find Book</a>
+            </div>
+        </div>
+
+         <div class="resource-card blog">
+             <div class="resource-placeholder-img">Blog Post</div>
+            <div class="resource-content">
+                <h3>Tips for Better Sleep</h3>
+                <p>Practical advice from a mental health blog on improving sleep hygiene for better wellbeing.</p>
+                {# Updated link to a reputable blog post about sleep tips #}
+                <a href="https://www.sleepfoundation.org/sleep-hygiene/healthy-sleep-tips" class="resource-link" target="_blank" rel="noopener noreferrer">Read Blog Post</a>
+            </div>
+        </div>
+
+         <div class="resource-card article"> <div class="resource-placeholder-img">Wellbeing Tool</div>
+            <div class="resource-content">
+                <h3>Mood Tracking App</h3>
+                <p>Explore apps that help you track your mood patterns and identify triggers. (e.g., Daylio, Moodpath)</p>
+                {# Updated link as requested #}
+                <a href="https://daylio.net/" class="resource-link" target="_blank" rel="noopener noreferrer">Explore Apps</a>
+            </div>
+        </div>
+
+         <div class="resource-card video"> <div class="resource-placeholder-img">Support Hotlines</div>
+            <div class="resource-content">
+                <h3>Crisis Support Lines</h3>
+                <p>If you're in distress, reach out. Find national or local helplines here. (Link to a list)</p>
+                {# Updated link as requested #}
+                <a href="https://groups.oist.jp/system/files/India_0.pdf" class="resource-link" target="_blank" rel="noopener noreferrer">Find Help</a>
+            </div>
+        </div>
+
+        </div>
+</div>
+{% endblock %}

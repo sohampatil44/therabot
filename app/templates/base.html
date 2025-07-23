@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Therabot – Your AI Therapy Companion{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+</head>
+<body>
+    <header>
+        <h1><a href="{{ url_for('main.index') }}" class="header-link">Therabot</a></h1>
+
+        <nav>
+            <a href="{{ url_for('main.chat') }}" class="{{ 'active' if request.endpoint == 'main.chat' else '' }}">Chat</a>
+            <a href="{{ url_for('main.faq') }}" class="{{ 'active' if request.endpoint == 'main.faq' else '' }}">FAQ</a>
+            <a href="{{ url_for('main.resources') }}" class="{{ 'active' if request.endpoint == 'main.resources' else '' }}">Resources</a>
+
+            {% if current_user.is_authenticated %}
+                <span class="nav-username" style="margin-top:8px;">Hi, {{ current_user.username }}!</span>
+                <a href="{{ url_for('main.logout') }}">Logout</a>
+            {% else %}
+                <a href="{{ url_for('main.login') }}" class="{{ 'active' if request.endpoint == 'main.login' else '' }}">Login</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages-container">
+                {% for category, message in messages %}
+                <div class="flash-message flash-{{ category|default('info') }}" role="alert">
+                    {{ message }}
+                    <button type="button" class="flash-close" onclick="this.parentElement.style.display='none';">×</button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>© {{ current_year }} Therabot. All rights reserved.</p>
+    </footer>
+
+    <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme">
+        🌙 </button>
+
+    <script defer src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

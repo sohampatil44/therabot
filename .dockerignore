@@ -1,29 +1,48 @@
-# Ignore common clutter
-__pycache__/
-*.py[cod]
+# Include any files or directories that you don't want to be copied to your
+# container here (e.g., local build artifacts, temporary files, etc.).
+#
+# For more help, visit the .dockerignore file reference guide at
+# https://docs.docker.com/go/build-context-dockerignore/
+
+**/.DS_Store
+**/__pycache__
+**/.venv
+**/.classpath
+**/.dockerignore
+**/.env
+**/.git
+**/.gitignore
+**/.project
+**/.settings
+**/.toolstarget
+**/.vs
+**/.vscode
+**/*.*proj.user
+**/*.dbmdl
+**/*.jfm
+**/bin
+**/charts
+**/docker-compose*
+**/compose.y*ml
+**/Dockerfile*
+**/node_modules
+**/npm-debug.log
+**/obj
+**/secrets.dev.yaml
+**/values.dev.yaml
+venv
+
+*.pyc
 *.pyo
 *.pyd
-
-.DS_Store
+*.db
+*.sqlite3
 *.log
 .env
-.venv/
-venv/
-.git/
-.vscode/
-.idea/
+*.ipynb
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfstate.d/
 
-# Ignore temporary files
-*.dbmdl
-*.jfm
-
-# Keep Docker-related files
-# (Do NOT ignore Dockerfile or docker-compose*)
-# Remove these if present:
-# **/Dockerfile*
-# **/docker-compose*
-
-# Ignore compiled binaries
-bin/
-obj/
-node_modules/
+LICENSE
+README.md
