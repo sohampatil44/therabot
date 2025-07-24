@@ -30,4 +30,13 @@ cd /home/ec2-user
 git clone https://github.com/sohampatil44/therabot.git
 cd /home/ec2-user/therabot
 
-sudo -u ec2-user /home/ec2-user/.docker/cli-plugins/docker compose up -d
+RETRIES=5
+COUNT=0
+until sudo -u ec2-user /home/ec2-user/.docker/cli-plugins/docker compose up -d
+  echo "Dcoker compose failed, retrying in 15 seconds.."
+  sleep 15
+  COUNT=$((COUNT + 1))
+done
+
+
+
