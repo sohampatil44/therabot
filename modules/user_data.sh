@@ -25,9 +25,10 @@ chown -R ec2-user:ec2-user /home/ec2-user
 # Clone repo as ec2-user
 sudo -u ec2-user git clone https://github.com/sohampatil44/therabot.git /home/ec2-user/therabot
 
-# Retry docker compose up as ec2-user
+# Change to the project directory
 cd /home/ec2-user/therabot
 
+# Retry docker compose up as ec2-user
 RETRIES=5
 COUNT=0
 until sudo -u ec2-user docker compose up -d; do
@@ -37,5 +38,7 @@ until sudo -u ec2-user docker compose up -d; do
   if [ "$COUNT" -ge "$RETRIES" ]; then
     echo "Docker compose failed after $RETRIES attempts, exiting."
     exit 1
-  fi  
+  fi
 done
+
+echo "Docker compose started successfully!"
