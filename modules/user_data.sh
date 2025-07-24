@@ -15,6 +15,10 @@ curl -SL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_
 chmod +x /home/ec2-user/.docker/cli-plugins/docker-compose
 chown -R ec2-user:ec2-user /home/ec2-user/.docker
 
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo cp /home/ec2-user/.docker/cli-plugins/docker-compose /usr/local/lib/docker/cli-plugins/
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker ec2-user
@@ -26,18 +30,16 @@ sudo -u ec2-user git clone https://github.com/sohampatil44/therabot.git /home/ec
 
 cd /home/ec2-user/therabot
 
-echo "About to start retry loop..."
-echo "Current directory: $(pwd)"
-echo "Files in directory: $(ls -la)"
+echo "Sleeping for 5 seconds to ensure Docker is ready..."
+sleep 5
 
-# Simple version first - just try once
-echo "Trying docker compose up..."
-sudo -u ec2-user docker compose up -d
+echo "Trying docker compose up as root..."
+docker compose up -d
 
 if [ $? -eq 0 ]; then
-    echo "Docker compose started successfully on first try!"
+    echo "Docker compose started successfully!"
 else
-    echo "Docker compose failed, would retry but skipping for debug"
+    echo "Docker compose failed!"
 fi
 
 echo "Script completed successfully!"
