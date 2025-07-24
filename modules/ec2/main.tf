@@ -18,7 +18,7 @@ resource "aws_instance" "ec21" {
   user_data = file("${path.module}/../user_data.sh")
 
   tags = {
-    Name = "ripensense-ec2"
+    Name = "therabot-ec2"
   }
 
   connection {
