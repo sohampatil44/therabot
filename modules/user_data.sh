@@ -32,10 +32,14 @@ cd /home/ec2-user/therabot
 
 RETRIES=5
 COUNT=0
-until sudo -u ec2-user /home/ec2-user/.docker/cli-plugins/docker compose up -d
+until sudo -u ec2-user /home/ec2-user/.docker/cli-plugins/docker compose up -d; do
   echo "Dcoker compose failed, retrying in 15 seconds.."
   sleep 15
   COUNT=$((COUNT + 1))
+  if [ "$COUNT" -ge "RETRIES" ]; then
+    echo "Docker compose failed after $RETRIES attempts, exiting."
+    exit 1
+  fi  
 done
 
 
