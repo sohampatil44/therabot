@@ -6,7 +6,7 @@ resource "aws_instance" "ec21" {
   key_name                   = var.key_name
   associate_public_ip_address = true
   monitoring                 = true  # ✅ Enable CloudWatch monitoring
-  iam_instance_profile = aws_iam_role.cw_role.name
+  iam_instance_profile = aws_iam_instance_profile.cw_instance_profile.name
   
   #for uplaoding provisioning files(eg. datasources.yaml, dashboards.yaml, ec2-dashboard.json)
   provisioner "file" {
@@ -71,6 +71,11 @@ resource "aws_iam_role" "cw_role" {
 resource "aws_iam_role_policy_attachment" "cw_attach" {
   role = aws_iam_role.cw_role.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+  
+}
+resource "aws_iam_instance_profile" "cw_instance_profile" {
+  name = "EC2CloudWatchInstanceProfile"
+  role = aws_iam_role.cw_role.name
   
 }
 
