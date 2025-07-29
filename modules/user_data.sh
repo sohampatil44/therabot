@@ -71,9 +71,14 @@ mkdir -p /etc/grafana/provisioning/datasources
 mkdir -p /etc/grafana/provisioning/dashboards
 mkdir -p /etc/grafana/provisioning/dashboards-json
 
+echo "Copying Grafana provsioning files..."
+cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards/
+cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards-json/ec2-dashboard.json /etc/grafana/provisioning/dashboards-json/
+cp /home/ec2-user/therabot/scripts/grafana/provisioning/cloudwatch-datasource.yaml /etc/grafana/provisioning/datasources/
+
 sudo systemctl enable grafana-server
 sudo systemctl start grafana-server
 
-echo "Grafana installation and service started
+echo "Grafana installation and service started"
 
 echo "Script completed successfully!"
