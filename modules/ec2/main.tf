@@ -5,7 +5,26 @@ resource "aws_instance" "ec21" {
   vpc_security_group_ids     = [var.security_group_id]
   key_name                   = var.key_name
   associate_public_ip_address = true
-
+  monitoring                 = true  # ✅ Enable CloudWatch monitoring
+  iam_instance_profile = aws_iam_role.cw_role.name
+  
+  #for uplaoding provisioning files(eg. datasources.yaml, dashboards.yaml, ec2-dashboard.json)
+  provisioner "file" {
+    source = "scripts/grafana/provisioning"
+    destination = "/home/ec2-user/grafana/"
+    
+  }
+  # execute commands (copy files to /etc/grafana/provisioning/)
+  provisioner "remote-exec" {
+    inline = [
+      "sudo mkdir -p /etc/grafana/provisioning/datasources",
+      "sudo mkdir -p /etc/grafana/provisioning/dashboards",
+      "sudo mkdir -p /etc/grafana/provisioning/dashboards-json",
+      "sudo cp /home/ec2-user/grafana/datasources.yaml /etc/grafana/provisioning/datasources/",
+      "sudo cp /home/ec2-user/grafana/dashboards.yaml /etc/grafana/provisioning/dashboards/",
+      "sudo cp /home/ec2-user/grafana/dashboards-json/*.json /etc/grafana/provisioning/dashboards-json/"
+    ]
+  }
   credit_specification {
     cpu_credits = "unlimited"
   }
@@ -29,3 +48,64 @@ resource "aws_instance" "ec21" {
     timeout     = "2m"
   }
 }
+
+# CloudWatch IAM ROLE
+
+resource "aws_iam_role" "cw_role" {
+  name="EC2CloudWatchRole"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        },
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+  
+}
+
+resource "aws_iam_role_policy_attachment" "cw_attach" {
+  role = aws_iam_role.cw_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+  
+}
+
+resource "aws_iam_policy" "custom_cw_policy" {
+  name = "EC2CustomCloudWatchPolicy"
+  description = "Custom policy to allow cloudwatch logs and metrics"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "logs:PutLogEvents",
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
+          "logs:GetLogEvents",
+          "logs:FilterLogEvents",
+          "cloudwatch:PutMetricData",
+          "cloudwatch:ListMetrics",
+          "cloudwatch:GetMetricStatistics",
+          "cloudwatch:GetMetricData"
+        ],
+        Resource = "*"
+      },
+      
+    ]
+  })
+  
+}
+
+resource "aws_iam_role_policy_attachment" "attach_custom_policy" {
+  role       = aws_iam_role.cw_role.name
+  policy_arn = aws_iam_policy.custom_cw_policy.arn
+  
+}
+

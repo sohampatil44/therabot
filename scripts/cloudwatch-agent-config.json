@@ -1,0 +1,40 @@
+{
+    "agent":{
+        "metrics_collection_interval": 60,
+        "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
+        "run_as_user": "root"
+    },
+
+    "logs":{
+        "logs_collected":{
+            "files":{
+                "collect_list":[
+                    {
+                        "file_path": "/var/log/messages",
+                        "log_group_name":"therabot-ec2-system-log",
+                        "log_stream_name":"{instance_id}"
+                    }
+                ]
+            }
+        }
+    },
+    "metrics": {
+    "metrics_collected": {
+      "cpu": {
+        "measurement": ["cpu_usage_idle", "cpu_usage_iowait"],
+        "metrics_collection_interval": 60,
+        "resources": ["*"],
+        "totalcpu": true
+      },
+      "mem": {
+        "measurement": ["mem_used_percent"],
+        "metrics_collection_interval": 60
+      },
+      "disk": {
+        "measurement": ["used_percent"],
+        "metrics_collection_interval": 60,
+        "resources": ["*"]
+      }
+    }
+  }
+}

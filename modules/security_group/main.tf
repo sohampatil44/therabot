@@ -19,6 +19,13 @@ resource "aws_security_group" "allow_web_ssh" {
         protocol = "tcp"
         cidr_blocks = ["0.0.0.0/0"]
     }
+    ingress {
+        description = "for grafana port"
+        from_port = 3000
+        to_port = 3000
+        protocol =  "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
 
     egress {
         description = "Allow all outbound traffic"
