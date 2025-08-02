@@ -54,15 +54,14 @@ else
 fi
 
 echo "Installing Grafana..."
-sudo tee /etc/yum.repos.d/grafana.repo > /dev/null <<EOF
+sudo tee /etc/yum.repos.d/grafana.repo <<EOF
 [grafana]
 name=Grafana OSS
-baseurl=https://rpm.grafana.com/oss/rpm
+baseurl=https://packages.grafana.com/oss/rpm
 repo_gpgcheck=1
 enabled=1
 gpgcheck=1
-gpgkey=https://rpm.grafana.com/gpg.key
-sslverify=1
+gpgkey=https://packages.grafana.com/gpg.key
 EOF
 
 sudo yum install -y grafana

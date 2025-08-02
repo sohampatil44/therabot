@@ -10,9 +10,24 @@
             "files":{
                 "collect_list":[
                     {
-                        "file_path": "/var/log/messages",
+                        "file_path": "/var/log/cloud-init.log",
                         "log_group_name":"therabot-ec2-system-log",
-                        "log_stream_name":"{instance_id}"
+                        "log_stream_name":"cloud-init-{instance_id}",
+                        "timestamp_format": "%Y-%m-%dT%H:%M:%S"
+                    },
+                    {
+                        "file_path":"/var/log/cloud-init-output.log",
+                        "log_group_name":"therabot-ec2-system-log",
+                        "log_stream_name": "cloud-init-output-{instance_id}",
+                        "timestamp_format": "%Y-%m-%dT%H:%M:%S"
+
+
+                    },
+                    {
+                        "file_path": "/var/log/user-data.log",
+                        "log_group_name": "therabot-ec2-system-log",
+                        "log_stream_name": "user-data-{instance_id}",
+                        "timestamp_format": "%Y-%m-%d %H:%M:%S"
                     }
                 ]
             }
