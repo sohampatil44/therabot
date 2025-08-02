@@ -100,7 +100,8 @@ resource "aws_iam_policy" "custom_cw_policy" {
           "cloudwatch:GetMetricStatistics",
           "cloudwatch:GetMetricData",
           "ec2:DescribeVolumes",
-          "ec2:DescribeTags"
+          "ec2:DescribeTags",
+          "cloudwatch:DescribeAlarms"
 
         ],
         Resource = "*"
