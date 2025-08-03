@@ -111,6 +111,22 @@ resource "aws_iam_policy" "custom_cw_policy" {
   })
   
 }
+resource "aws_cloudwatch_metric_alarm" "therabot_cpu_alarm" {
+  alarm_name = "TherabotHighCPU"
+  comparison_operator = "GreaterThanThreshold"
+  threshold = "70"
+  evaluation_periods = "2"
+  metric_name = "CPUUtilization"
+  namespace = "AWS/EC2"
+  period = "120"
+  statistic = "Average"
+  alarm_description = "This metric monitors EC2 CPU utilization for Therabot"
+  dimensions = {
+    InstanceId = aws_instance.ec21.id
+  }
+  actions_enabled = false
+  
+}
 
 resource "aws_iam_role_policy_attachment" "attach_custom_policy" {
   role       = aws_iam_role.cw_role.name
