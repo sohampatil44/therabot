@@ -69,7 +69,7 @@ def main():
         instance_id = "i-xxxxxxxxxxxxxx"
 
 
-    with open('/home/ec2-user/therabot/scripts/grafana/provisioning/dashboards/dashboards-json/ec2-dashboard.json','r') as f:
+    with open('/home/ec2-user/therabot/scripts/grafana/provisioning/dashboards-json/ec2-dashboard.json','r') as f:
         dashboard = json.load(f)
 
     dashboard['title']  = f"EC2 Dashboard - {instance_id}"

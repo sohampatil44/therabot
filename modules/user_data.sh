@@ -44,7 +44,6 @@ sudo mkdir -p /usr/local/lib/docker/cli-plugins
 sudo cp /home/ec2-user/.docker/cli-plugins/docker-compose /usr/local/lib/docker/cli-plugins/
 sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
-sudo dnf install -y docker
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker ec2-user
@@ -99,8 +98,7 @@ mkdir -p /etc/grafana/provisioning/dashboards-json
 echo "Copying Grafana provisioning files..."
 cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards/
 cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards-json/ec2-dashboard.json /etc/grafana/provisioning/dashboards-json/
-cp /home/ec2-user/therabot/scripts/grafana/provisioning/cloudwatch-datasource.yaml /etc/grafana/provisioning/datasources/
-apt-get install -y python3 python3-pip jq curl
+cp /home/ec2-user/therabot/scripts/grafana/provisioning/datasources/cloudwatch-datasource.yaml /etc/grafana/provisioning/datasources/
 
 sudo systemctl enable grafana-server
 sudo systemctl start grafana-server
