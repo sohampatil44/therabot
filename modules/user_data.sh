@@ -1,5 +1,6 @@
 #!/bin/bash
-exec > /var/log/user-data.log 2>&1
+#!/bin/bash
+exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
 echo "Starting the user data script"
 
@@ -26,7 +27,9 @@ fi
 # ----------------------
 
 sudo yum update -y
-sudo yum install -y docker git python3 python3-pip jq curl
+sudo dnf install -y git
+sudo yum install -y docker python3 python3-pip jq curl
+
 
 DOCKER_COMPOSE_VERSION=2.24.6
 mkdir -p /home/ec2-user/.docker/cli-plugins
@@ -41,6 +44,7 @@ sudo mkdir -p /usr/local/lib/docker/cli-plugins
 sudo cp /home/ec2-user/.docker/cli-plugins/docker-compose /usr/local/lib/docker/cli-plugins/
 sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
+sudo dnf install -y docker
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker ec2-user
@@ -48,6 +52,7 @@ sudo usermod -aG docker ec2-user
 chown -R ec2-user:ec2-user /home/ec2-user
 
 echo "About to clone repository..."
+rm -rf /home/ec2-user/therabot
 sudo -u ec2-user git clone https://github.com/sohampatil44/therabot.git /home/ec2-user/therabot
 
 cd /home/ec2-user/therabot
