@@ -1,8 +1,12 @@
 {
+    "uid":"ec2dashboard1",
     "refresh":"10s",
     "id": null,
     "title": "EC2 Sample Dashboard for therabot",
     "panels": [],
     "schemaVersion": 16,
-    "version": 0
+    "version": 0,
+    "timezone":"browser"
 }
+
+

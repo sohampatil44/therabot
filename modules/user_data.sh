@@ -26,7 +26,7 @@ fi
 # ----------------------
 
 sudo yum update -y
-sudo yum install -y docker git
+sudo yum install -y docker git python3 python3-pip jq curl
 
 DOCKER_COMPOSE_VERSION=2.24.6
 mkdir -p /home/ec2-user/.docker/cli-plugins
@@ -95,10 +95,15 @@ echo "Copying Grafana provisioning files..."
 cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards/
 cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards-json/ec2-dashboard.json /etc/grafana/provisioning/dashboards-json/
 cp /home/ec2-user/therabot/scripts/grafana/provisioning/cloudwatch-datasource.yaml /etc/grafana/provisioning/datasources/
+apt-get install -y python3 python3-pip jq curl
 
 sudo systemctl enable grafana-server
 sudo systemctl start grafana-server
 
 echo "Grafana installation and service started"
+
+sleep 30
+
+python3 /home/ec2-user/therabot/scripts/grafana/auto_dashboard.py
 
 echo "Script completed successfully!"
