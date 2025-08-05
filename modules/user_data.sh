@@ -54,6 +54,20 @@ echo "About to clone repository..."
 rm -rf /home/ec2-user/therabot
 sudo -u ec2-user git clone https://github.com/sohampatil44/therabot.git /home/ec2-user/therabot
 
+while [ ! -d /home/ec2-user/therabot ]; do
+  sleep 2
+done  
+
+sudo mkdir -p /etc/grafana/provisioning/datasources
+sudo mkdir -p /etc/grafana/provisioning/dashboards
+sudo mkdir -p /etc/grafana/provisioning/dashboards-json
+
+sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/datasources/cloudwatch-datasource.yaml /etc/grafana/provisioning/datasources/
+sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards/
+sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards-json/*.json /etc/grafana/provisioning/dashboards-json/
+
+      
+
 cd /home/ec2-user/therabot
 
 echo "Installing CloudWatch Agent.."

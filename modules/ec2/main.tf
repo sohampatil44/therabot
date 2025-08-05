@@ -8,23 +8,7 @@ resource "aws_instance" "ec21" {
   monitoring                 = true  # ✅ Enable CloudWatch monitoring
   iam_instance_profile = aws_iam_instance_profile.cw_instance_profile.name
   
-  #for uplaoding provisioning files(eg. datasources.yaml, dashboards.yaml, ec2-dashboard.json)
-  provisioner "file" {
-    source = "scripts/grafana/provisioning"
-    destination = "/home/ec2-user/grafana/"
-    
-  }
-  # execute commands (copy files to /etc/grafana/provisioning/)
-  provisioner "remote-exec" {
-    inline = [
-      "sudo mkdir -p /etc/grafana/provisioning/datasources",
-      "sudo mkdir -p /etc/grafana/provisioning/dashboards",
-      "sudo mkdir -p /etc/grafana/provisioning/dashboards-json",
-      "sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/datasources/cloudwatch-datasource.yaml /etc/grafana/provisioning/datasources/",
-      "sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards/",
-      "sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards-json/*.json /etc/grafana/provisioning/dashboards-json/"
-    ]
-  }
+  
   credit_specification {
     cpu_credits = "unlimited"
   }
