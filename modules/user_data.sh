@@ -27,14 +27,16 @@ fi
 # ----------------------
 
 sudo yum update -y
-sudo yum install -y git
-sudo yum install -y docker python3 python3-pip jq curl
+sudo yum install -y git docker python3 python3-pip jq curl
 
+# ----------------------
+# Docker Compose Installation
+# ----------------------
 
 DOCKER_COMPOSE_VERSION=2.24.6
 mkdir -p /home/ec2-user/.docker/cli-plugins
 
-echo "About to download docker compose..."
+echo "Downloading Docker Compose..."
 curl -SL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" -o /home/ec2-user/.docker/cli-plugins/docker-compose
 
 chmod +x /home/ec2-user/.docker/cli-plugins/docker-compose
@@ -50,13 +52,22 @@ sudo usermod -aG docker ec2-user
 
 chown -R ec2-user:ec2-user /home/ec2-user
 
-echo "About to clone repository..."
+# ----------------------
+# Clone the Repository
+# ----------------------
+
+echo "Cloning repository..."
 rm -rf /home/ec2-user/therabot
 sudo -u ec2-user git clone https://github.com/sohampatil44/therabot.git /home/ec2-user/therabot
 
+# Wait for successful clone
 while [ ! -d /home/ec2-user/therabot ]; do
   sleep 2
 done  
+
+# ----------------------
+# Copy Grafana provisioning files
+# ----------------------
 
 sudo mkdir -p /etc/grafana/provisioning/datasources
 sudo mkdir -p /etc/grafana/provisioning/dashboards
@@ -66,24 +77,42 @@ sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/datasources/cloudwa
 sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards/
 sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards-json/*.json /etc/grafana/provisioning/dashboards-json/
 
-      
-
 cd /home/ec2-user/therabot
 
-echo "Installing CloudWatch Agent.."
+# ----------------------
+# CloudWatch Agent
+# ----------------------
+
+echo "Installing CloudWatch Agent..."
 sudo yum install -y amazon-cloudwatch-agent
 
-echo "Starting Cloudwatch agent with config.."
+echo "Starting CloudWatch Agent..."
 sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
   -a fetch-config \
   -m ec2 \
   -c file:/home/ec2-user/therabot/scripts/cloudwatch-agent-config.json \
   -s
 
-echo "Sleeping for 5 seconds to ensure Docker is ready..."
-sleep 5
+# ----------------------
+# Wait for Docker to be available
+# ----------------------
 
-echo "Trying docker compose up as root..."
+echo "Waiting for Docker to become available..."
+for i in {1..10}; do
+    if command -v docker >/dev/null 2>&1; then
+        echo "Docker is now available."
+        break
+    else
+        echo "Docker not found, retrying in 5 seconds..."
+        sleep 5
+    fi
+done
+
+# ----------------------
+# Docker Compose Up
+# ----------------------
+
+echo "Starting Docker Compose..."
 sudo docker compose up -d
 
 if [ $? -eq 0 ]; then
@@ -91,6 +120,10 @@ if [ $? -eq 0 ]; then
 else
     echo "Docker compose failed!"
 fi
+
+# ----------------------
+# Install Grafana
+# ----------------------
 
 echo "Installing Grafana..."
 sudo tee /etc/yum.repos.d/grafana.repo <<EOF
@@ -105,11 +138,11 @@ EOF
 
 sudo yum install -y grafana
 
+# Copy provisioning files again (to be safe)
 mkdir -p /etc/grafana/provisioning/datasources
 mkdir -p /etc/grafana/provisioning/dashboards
 mkdir -p /etc/grafana/provisioning/dashboards-json
 
-echo "Copying Grafana provisioning files..."
 cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards/
 cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards-json/ec2-dashboard.json /etc/grafana/provisioning/dashboards-json/
 cp /home/ec2-user/therabot/scripts/grafana/provisioning/datasources/cloudwatch-datasource.yaml /etc/grafana/provisioning/datasources/
@@ -119,8 +152,11 @@ sudo systemctl start grafana-server
 
 echo "Grafana installation and service started"
 
-sleep 30
+# ----------------------
+# Create Grafana dashboard automatically
+# ----------------------
 
+sleep 30
 python3 /home/ec2-user/therabot/scripts/grafana/auto_dashboard.py
 
-echo "Script completed successfully!"
+echo "User data script completed successfully!"
