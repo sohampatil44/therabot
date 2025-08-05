@@ -20,9 +20,9 @@ resource "aws_instance" "ec21" {
       "sudo mkdir -p /etc/grafana/provisioning/datasources",
       "sudo mkdir -p /etc/grafana/provisioning/dashboards",
       "sudo mkdir -p /etc/grafana/provisioning/dashboards-json",
-      "sudo cp /home/ec2-user/grafana/datasources.yaml /etc/grafana/provisioning/datasources/",
-      "sudo cp /home/ec2-user/grafana/dashboards.yaml /etc/grafana/provisioning/dashboards/",
-      "sudo cp /home/ec2-user/grafana/dashboards-json/*.json /etc/grafana/provisioning/dashboards-json/"
+      "sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/datasources/cloudwatch-datasource.yaml /etc/grafana/provisioning/datasources/",
+      "sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards/",
+      "sudo cp /home/ec2-user/therabot/scripts/grafana/provisioning/dashboards-json/*.json /etc/grafana/provisioning/dashboards-json/"
     ]
   }
   credit_specification {

@@ -1,5 +1,5 @@
 #!/bin/bash
-#!/bin/bash
+
 exec > >(tee /var/log/user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
 echo "Starting the user data script"
@@ -27,7 +27,7 @@ fi
 # ----------------------
 
 sudo yum update -y
-sudo dnf install -y git
+sudo yum install -y git
 sudo yum install -y docker python3 python3-pip jq curl
 
 
@@ -70,7 +70,7 @@ echo "Sleeping for 5 seconds to ensure Docker is ready..."
 sleep 5
 
 echo "Trying docker compose up as root..."
-docker compose up -d
+sudo docker compose up -d
 
 if [ $? -eq 0 ]; then
     echo "Docker compose started successfully!"
