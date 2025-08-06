@@ -41,6 +41,16 @@ echo "Installing Docker using official convenience script..."
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
+which docker
+docker --version
+
+sudo groupadd docker || true
+sudo usermod -aG docker ec2-user
+
+sudo systemctl enable docker
+sudo systemctl start docker
+
+
 
 # Verify git installation
 echo "Verifying git installation..."
@@ -77,6 +87,12 @@ for i in {1..30}; do
 done
 
 # Add ec2-user to docker group
+if getent group docker; then
+    echo "Docker group exists."
+else
+    echo "Creating docker group manually..."
+    sudo groupadd docker
+fi
 sudo usermod -aG docker ec2-user
 
 # ----------------------
@@ -151,7 +167,7 @@ fi
 # Wait for successful clone and verify
 echo "Verifying repository clone..."
 for i in {1..10}; do
-    if [ -d /home/ec2-user/therabot ] && [ -f /home/ec2-user/therabot/docker-compose.yml ]; then
+    if [ -d /home/ec2-user/therabot ] && [ -f /home/ec2-user/therabot/compose.yml ]; then
         echo "Repository successfully cloned and verified."
         break
     else
@@ -203,9 +219,15 @@ if [ -f /home/ec2-user/therabot/scripts/cloudwatch-agent-config.json ]; then
       -m ec2 \
       -c file:/home/ec2-user/therabot/scripts/cloudwatch-agent-config.json \
       -s
+
+    echo "Enabling and starting CloudWatch Agent service..."
+    sudo systemctl enable amazon-cloudwatch-agent
+    sudo systemctl start amazon-cloudwatch-agent
 else
     echo "CloudWatch agent config file not found, skipping agent configuration."
 fi
+
+sudo systemctl status amazon-cloudwatch-agent >> /var/log/cloudwatch-agent-status.log
 
 # ----------------------
 # Docker Compose Up
@@ -214,8 +236,8 @@ fi
 echo "Starting Docker Compose..."
 
 # Ensure we're in the right directory and docker-compose.yml exists
-if [ ! -f docker-compose.yml ]; then
-    echo "docker-compose.yml not found in $(pwd)"
+if [ ! -f compose.yml ]; then
+    echo "compose.yml not found in $(pwd)"
     ls -la
     exit 1
 fi
