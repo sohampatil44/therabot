@@ -36,19 +36,20 @@ fi
 echo "Installing packages..."
 sudo yum install -y git  python3 python3-pip jq curl
 
-# For Amazon Linux 2023 - Install Docker using official script
-echo "Installing Docker using official convenience script..."
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+echo "Installing Docker (Amazon Linux 2023)..."
+sudo dnf install -y docker
+sudo systemctl enable docker
+sudo systemctl start docker
+sudo groupadd docker || true
+
+sudo usermod -aG docker ec2-user
+
 
 which docker
 docker --version
 
-sudo groupadd docker || true
-sudo usermod -aG docker ec2-user
 
-sudo systemctl enable docker
-sudo systemctl start docker
+
 
 
 
@@ -69,10 +70,7 @@ else
     fi
 fi
 
-# Start Docker service first
-echo "Starting Docker service..."
-sudo systemctl enable docker
-sudo systemctl start docker
+
 
 # Wait for Docker daemon to be ready
 echo "Waiting for Docker daemon to be ready..."
@@ -167,7 +165,7 @@ fi
 # Wait for successful clone and verify
 echo "Verifying repository clone..."
 for i in {1..10}; do
-    if [ -d /home/ec2-user/therabot ] && [ -f /home/ec2-user/therabot/compose.yml ]; then
+    if [ -d /home/ec2-user/therabot ] && [ -f /home/ec2-user/therabot/compose.yaml ]; then
         echo "Repository successfully cloned and verified."
         break
     else
@@ -236,8 +234,8 @@ sudo systemctl status amazon-cloudwatch-agent >> /var/log/cloudwatch-agent-statu
 echo "Starting Docker Compose..."
 
 # Ensure we're in the right directory and docker-compose.yml exists
-if [ ! -f compose.yml ]; then
-    echo "compose.yml not found in $(pwd)"
+if [ ! -f compose.yaml ]; then
+    echo "compose.yaml not found in $(pwd)"
     ls -la
     exit 1
 fi
