@@ -34,7 +34,13 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "Installing packages..."
-sudo yum install -y git docker python3 python3-pip jq curl
+sudo yum install -y git  python3 python3-pip jq curl
+
+# For Amazon Linux 2023 - Install Docker using official script
+echo "Installing Docker using official convenience script..."
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
 
 # Verify git installation
 echo "Verifying git installation..."
