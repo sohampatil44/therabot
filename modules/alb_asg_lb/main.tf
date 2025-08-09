@@ -47,16 +47,18 @@ resource "aws_lb_listener" "http_listener" {
 
 resource "aws_s3_bucket" "alb_logs_bucket" {
   bucket = "therabot-alb-logs-bucket"
-  acl = "private"
+}
+resource "aws_s3_bucket_versioning" "alb_logs_bucket_versioning" {
+  bucket = aws_s3_bucket.alb_logs_bucket.id
 
-  versioning {
-    enabled = true
+  versioning_configuration {
+    status = "Enabled"
   }
   
 }
 
 
-resource "aws_s3_bucket_policy" "name" {
+resource "aws_s3_bucket_policy" "alb_logs_bucket_policy" {
   bucket = aws_s3_bucket.alb_logs_bucket.id
 
   policy = jsonencode({
@@ -68,7 +70,7 @@ resource "aws_s3_bucket_policy" "name" {
         Principal = {
           Service = "logdelivery.elasticloadbalancing.amazonaws.com"
         },
-        Action = ["s3:PutObject","s3:PutObjectAcl"],
+        Action = ["s3:PutObject", "s3:PutObjectAcl"],
         Resource = "${aws_s3_bucket.alb_logs_bucket.arn}/alb-access-logs/*"
       },
       {
@@ -79,14 +81,10 @@ resource "aws_s3_bucket_policy" "name" {
         Resource = "${aws_s3_bucket.alb_logs_bucket.arn}/*",
         Condition = {
           Bool = {
-          "aws:SecureTransport" = "false"
+            "aws:SecureTransport" = "false"
+          }
+        }
       }
-      }
-      }
-      
     ]
-    
-    
   })
-  
 }
