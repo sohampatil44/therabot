@@ -21,3 +21,19 @@ variable "subnet_id" {
     type = string
   
 }
+
+
+
+variable "target_group_arn" {
+    type = string
+  
+}
+
+variable "therabot_arn_suffix" {
+    type = string
+  
+}
+variable "lb_suffix" {
+    type = string
+  
+}

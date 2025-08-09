@@ -4,7 +4,7 @@ resource "aws_vpc" "vpc1" {
     enable_dns_support = true
 
     tags = {
-        Name = "ripensense-vpc"
+        Name = "therabot-vpc"
         
     }
 

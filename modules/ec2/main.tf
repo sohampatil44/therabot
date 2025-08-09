@@ -112,9 +112,143 @@ resource "aws_cloudwatch_metric_alarm" "therabot_cpu_alarm" {
   
 }
 
+resource "aws_cloudwatch_metric_alarm" "high_request_alarm" {
+  alarm_name = "TherabotHighRequestCount"
+  comparison_operator = "GreaterThanThreshold"
+  threshold = "100"
+  alarm_description = "High number of requests per target,scale out"
+  evaluation_periods = 2
+  metric_name = "RequestCountPerTarget"
+  namespace = "AWS/ApplicationELB"
+  period = 60
+  statistic = "Average"
+  dimensions = {
+    TargetGroup = var.therabot_arn_suffix
+    LoadBalancer = var.lb_suffix
+  }
+
+  alarm_actions = [aws_autoscaling_policy.scale_out.arn]
+  
+}
+resource "aws_cloudwatch_metric_alarm" "low_request_alarm" {
+  alarm_name = "TherabotLowRequestCount"
+  comparison_operator = "LessThanThreshold"
+  threshold = 10
+  evaluation_periods = 2
+  metric_name = "RequestCountPerTarget"
+  namespace = "AWS/ApplicationELB"
+  period = 60
+  statistic = "Average"
+  alarm_description = "Low request count, scale in"
+  dimensions = {
+    TargetGroup= var.therabot_arn_suffix
+    LoadBalancer = var.lb_suffix
+  }
+  alarm_actions = [aws_autoscaling_policy.scale_in.arn]
+  
+}
+
 resource "aws_iam_role_policy_attachment" "attach_custom_policy" {
   role       = aws_iam_role.cw_role.name
   policy_arn = aws_iam_policy.custom_cw_policy.arn
   
 }
 
+#ASG LAUNCH TEMPLATE CREATION
+
+resource "aws_launch_template" "therabot_template" {
+  name_prefix = "therabot-"
+  image_id = var.ami_id
+  instance_type = var.instance_type
+  key_name = var.key_name
+  user_data = file("${path.module}/../user_data.sh")
+  iam_instance_profile {
+    name = aws_iam_instance_profile.cw_instance_profile.name
+  }
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [var.security_group_id]
+  }
+  
+}
+
+resource "aws_autoscaling_group" "therabot_asg" {
+  desired_capacity = 2
+  max_size = 3
+  min_size = 1
+  vpc_zone_identifier = [var.subnet_id]
+  health_check_type = "ELB"
+  target_group_arns = [var.target_group_arn]
+  launch_template {
+    id = aws_launch_template.therabot_template.id
+    version = "$Latest"
+
+  }
+  tag {
+    key = "Name"
+    value = "therabot-asg"
+    propagate_at_launch = true
+  }
+  
+  
+  
+}
+
+resource "aws_autoscaling_policy" "scale_out" {
+  name = "scale-out"
+  scaling_adjustment = 1
+  adjustment_type = "ChangeInCapacity"
+  cooldown = 300
+  autoscaling_group_name = aws_autoscaling_group.therabot_asg.name
+  
+}
+
+resource "aws_autoscaling_policy" "scale_in" {
+  name = "scale-in"
+  scaling_adjustment = -1
+  adjustment_type = "ChangeInCapacity"
+  cooldown = 300
+  autoscaling_group_name = aws_autoscaling_group.therabot_asg.name
+  
+}
+
+resource "aws_cloudwatch_event_rule" "asg_events" {
+  name = "asg-scaling-events"
+  description = "Rule to capture ASG scaling events"
+  event_pattern = jsonencode({
+    "source": ["aws.autoscaling"],
+    "detail-type": [
+      "EC2 Instance-launch Lifecycle Action",
+    "EC2 Instance-terminate Lifecycle Action",
+    "EC2 Instance-launch Successful",
+    "EC2 Instance-terminate Successful",
+    "EC2 Instance-launch Failed",
+    "EC2 Instance-terminate Failed",
+    "Auto Scaling EC2 Instance Launch Lifecycle Action",
+    "Auto Scaling EC2 Instance Terminate Lifecycle Action",
+    "Auto Scaling EC2 Instance Launch Successful",
+    "Auto Scaling EC2 Instance Terminate Successful",
+    "Auto Scaling EC2 Instance Launch Failed",
+    "Auto Scaling EC2 Instance Terminate Failed"
+    ]
+  })
+  
+}
+
+resource "aws_cloudwatch_event_target" "sns_target" {
+  rule = aws_cloudwatch_event_rule.asg_events.name
+  arn = aws_sns_topic.asg_notifications.arn
+  target_id = "sns-topc"
+  
+}
+resource "aws_sns_topic" "asg_notifications" {
+  name = "asg-notifications"
+  
+}
+
+resource "aws_sns_topic_subscription" "email_sub" {
+  topic_arn = aws_sns_topic.asg_notifications.arn
+  protocol = "email"
+  endpoint = "hydrogen939@gmail.com"
+  
+}

@@ -28,6 +28,14 @@
                         "log_group_name": "therabot-ec2-system-log",
                         "log_stream_name": "user-data-{instance_id}",
                         "timestamp_format": "%Y-%m-%d %H:%M:%S"
+                    },
+                    {
+                        "file_path":"/var/lib/docker/*/*.log",
+                        "log_group_name":"therabot-dockerlogs",
+                        "log_stream_name":"{container_id}",
+                        "timestamp_format": "%Y-%m-%dT%H:%M:%S"
+
+                        
                     }
                 ]
             }

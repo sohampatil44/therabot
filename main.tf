@@ -39,9 +39,24 @@ module "ec2" {
     key_name = var.key_name
     security_group_id = module.security_group.security_group_id
     subnet_id = module.subnet.subnet_id
+    target_group_arn = module.alb_asg_lb.aws_lb_target_group_arn
+    therabot_arn_suffix = module.alb_asg_lb.aws_lb_target_group_arn_suffix
+    lb_suffix = module.alb_asg_lb.aws_lb_arn_suffix
+
     
   
 }
+module "alb_asg_lb" {
+    source = "./modules/alb_asg_lb"
+    alb_sg_id = module.security_group.security_group_id
+    vpc_id = module.vpc.vpc_id
+    public_subnets = module.subnet.subnet_id
+
+    
+
+  
+}
+
 output "ec2_public_ip" {
     value = module.ec2.public_ip
   
