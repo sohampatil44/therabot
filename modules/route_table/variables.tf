@@ -5,5 +5,5 @@ variable "igw_id" {
     type = string
 }
 variable "subnet_id" {
-    type = string
+    type = list(string)
 }
