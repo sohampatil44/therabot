@@ -173,7 +173,7 @@ resource "aws_launch_template" "therabot_template" {
 }
 
 resource "aws_autoscaling_group" "therabot_asg" {
-  desired_capacity = 2
+  desired_capacity = 1
   max_size = 3
   min_size = 1
   vpc_zone_identifier = [var.subnet_id]
