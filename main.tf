@@ -1,3 +1,8 @@
+locals {
+  all_subnet_ids = module.subnet.subnet_id
+}
+
+
 module "vpc"{
     source = "./modules/vpc"
     vpc_cidr = var.vpc_cidr
@@ -23,7 +28,7 @@ module "route_table" {
     source = "./modules/route_table"
     vpc_id = module.vpc.vpc_id
     igw_id = module.igw.igw_id
-    subnet_id = module.subnet.subnet_id
+    subnet_id = local.all_subnet_ids
   
 }
 
@@ -51,7 +56,7 @@ module "alb_asg_lb" {
     source = "./modules/alb_asg_lb"
     alb_sg_id = module.security_group.security_group_id
     vpc_id = module.vpc.vpc_id
-    public_subnets = module.subnet.subnet_id
+    public_subnets = local.all_subnet_ids
 
 
     
