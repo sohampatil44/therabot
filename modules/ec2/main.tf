@@ -161,7 +161,7 @@ resource "aws_launch_template" "therabot_template" {
   image_id = var.ami_id
   instance_type = var.instance_type
   key_name = var.key_name
-  user_data = file("${path.module}/../user_data.sh")
+  user_data = base64encode(file("${path.module}/../user_data.sh"))
   iam_instance_profile {
     name = aws_iam_instance_profile.cw_instance_profile.name
   }

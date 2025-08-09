@@ -16,7 +16,8 @@ resource "aws_route_table" "public" {
 
 
 resource "aws_route_table_association" "a" {
-    subnet_id = var.subnet_id
+    count = length(var.subnet_id)
+    subnet_id = var.subnet_id[count.index]
     route_table_id = aws_route_table.public.id
   
 }

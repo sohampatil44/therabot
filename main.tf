@@ -9,6 +9,7 @@ module "subnet" {
     vpc_id = module.vpc.vpc_id
     vpc_cidr = var.vpc_cidr
     env_name = var.env_name
+    availability_zones = ["us-east-1a", "us-east-1b"]
   
 }
 
@@ -38,7 +39,7 @@ module "ec2" {
     instance_type = "t3.micro"
     key_name = var.key_name
     security_group_id = module.security_group.security_group_id
-    subnet_id = module.subnet.subnet_id
+    subnet_id = module.subnet.subnet_id[0]
     target_group_arn = module.alb_asg_lb.aws_lb_target_group_arn
     therabot_arn_suffix = module.alb_asg_lb.aws_lb_target_group_arn_suffix
     lb_suffix = module.alb_asg_lb.aws_lb_arn_suffix
@@ -50,7 +51,8 @@ module "alb_asg_lb" {
     source = "./modules/alb_asg_lb"
     alb_sg_id = module.security_group.security_group_id
     vpc_id = module.vpc.vpc_id
-    public_subnets = [module.subnet.subnet_id]
+    public_subnets = module.subnet.subnet_id
+
 
     
 
