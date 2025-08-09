@@ -18,7 +18,7 @@ Flask + Google Gemini app for supportive mental wellbeing chat & resources.
 
 ---
 
-## Tech Stack 🛠️
+### Tech Stack 🛠️
 
 `Python` | `Flask` | `SQLite` | `Google Gemini API` | `SentenceTransformers` | `Jinja2` | `JavaScript` | `CSS`
 
