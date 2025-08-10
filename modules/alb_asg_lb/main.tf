@@ -24,10 +24,10 @@ resource "aws_lb_target_group" "therabot_tg" {
 
     health_check {
       path = "/"
-      interval = 30
-      timeout = 5
-      healthy_threshold = 5
-      unhealthy_threshold = 2
+      interval = 60
+      timeout = 10
+      healthy_threshold = 2
+      unhealthy_threshold = 10
       matcher = "200"
     }
   
@@ -56,15 +56,35 @@ resource "aws_s3_bucket_versioning" "alb_logs_bucket_versioning" {
   }
   
 }
+
+resource "aws_s3_bucket_lifecycle_configuration" "alb_logs_lifecycle" {
+  bucket = aws_s3_bucket.alb_logs_bucket.id
+
+  rule {
+    id = "ExpireAllVersions"
+    status = "Enabled"
+    noncurrent_version_expiration {
+      noncurrent_days  = 1
+    }
+  }
+  
+}
 resource "null_resource" "empty_alb_logs" {
   triggers = {
     bucket = aws_s3_bucket.alb_logs_bucket.id
   }
   provisioner "local-exec" {
-    command = "aws s3 rm s3://${aws_s3_bucket.alb_logs_bucket.bucket} --recursive"
-    
+    command = <<EOT
+      aws s3api delete-objects --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} --delete "$(aws s3api list-object-versions --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} --query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}' --output=json)"
+      aws s3api delete-objects --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} --delete "$(aws s3api list-object-versions --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} --query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' --output=json)"
+      EOT
+
   }
-  depends_on = [ aws_s3_bucket.alb_logs_bucket]
+  depends_on = [
+     aws_s3_bucket.alb_logs_bucket,
+     aws_s3_bucket_versioning.alb_logs_bucket_versioning,
+     aws_s3_bucket_lifecycle_configuration.alb_logs_lifecycle
+     ]
 }
 
 

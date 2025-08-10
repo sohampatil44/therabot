@@ -243,6 +243,10 @@ fi
 # Fix permissions
 sudo chown -R ec2-user:ec2-user /home/ec2-user/therabot
 
+echo "Waiting before starting app..."
+sleep 60
+
+
 # Start services with proper user
 echo "Running Docker Compose as ec2-user..."
 sudo -u ec2-user docker compose up -d
