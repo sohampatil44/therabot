@@ -183,6 +183,14 @@ resource "aws_launch_template" "therabot_template" {
     associate_public_ip_address = true
     security_groups = [var.security_group_id]
   }
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = 32
+      volume_type = "gp3"
+    }
+  }
   
 }
 
