@@ -71,21 +71,50 @@ resource "aws_s3_bucket_lifecycle_configuration" "alb_logs_lifecycle" {
 }
 resource "null_resource" "empty_alb_logs" {
   triggers = {
-    bucket = aws_s3_bucket.alb_logs_bucket.id
+    bucket     = aws_s3_bucket.alb_logs_bucket.id
+    run_always = timestamp() # Forces this to run every apply
   }
+
   provisioner "local-exec" {
     command = <<EOT
-      aws s3api delete-objects --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} --delete "$(aws s3api list-object-versions --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} --query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}' --output=json)"
-      aws s3api delete-objects --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} --delete "$(aws s3api list-object-versions --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} --query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' --output=json)"
-      EOT
+# Delete all object versions if any exist
+versions=$(aws s3api list-object-versions \
+  --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} \
+  --query='Versions[].{Key:Key,VersionId:VersionId}' \
+  --output=json)
 
+if [ "$versions" != "[]" ]; then
+  echo "Deleting object versions..."
+  aws s3api delete-objects \
+    --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} \
+    --delete "{\"Objects\":$versions}"
+fi
+
+# Delete all delete markers if any exist
+markers=$(aws s3api list-object-versions \
+  --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} \
+  --query='DeleteMarkers[].{Key:Key,VersionId:VersionId}' \
+  --output=json)
+
+if [ "$markers" != "[]" ]; then
+  echo "Deleting delete markers..."
+  aws s3api delete-objects \
+    --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} \
+    --delete "{\"Objects\":$markers}"
+fi
+
+echo "Bucket cleanup completed."
+EOT
+    interpreter = ["/bin/bash", "-c"]
   }
+
   depends_on = [
-     aws_s3_bucket.alb_logs_bucket,
-     aws_s3_bucket_versioning.alb_logs_bucket_versioning,
-     aws_s3_bucket_lifecycle_configuration.alb_logs_lifecycle
-     ]
+    aws_s3_bucket.alb_logs_bucket,
+    aws_s3_bucket_versioning.alb_logs_bucket_versioning,
+    aws_s3_bucket_lifecycle_configuration.alb_logs_lifecycle
+  ]
 }
+
 
 
 resource "aws_s3_bucket_policy" "alb_logs_bucket_policy" {
