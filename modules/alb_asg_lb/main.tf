@@ -58,7 +58,7 @@ resource "aws_s3_bucket_versioning" "alb_logs_bucket_versioning" {
 }
 resource "null_resource" "empty_alb_logs" {
   triggers = {
-    bucket = aws_s3_bucket.alb_logs_bucket.od
+    bucket = aws_s3_bucket.alb_logs_bucket.id
   }
   provisioner "local-exec" {
     command = "aws s3 rm s3://${aws_s3_bucket.alb_logs_bucket.bucket} --recursive"
