@@ -95,6 +95,20 @@ resource "aws_iam_policy" "custom_cw_policy" {
   })
   
 }
+#CLOUDWATCH KOG GROUP CREATION------------------
+#-----------------------------------------------
+
+resource "aws_cloudwatch_log_group" "system_log" {
+  name = "therabot-system-log"
+  retention_in_days = 30
+  
+}
+resource "aws_cloudwatch_log_group" "docker_logs" {
+  name = "therabot-docker-logs"
+  retention_in_days = 30
+  
+}
+
 resource "aws_cloudwatch_metric_alarm" "therabot_cpu_alarm" {
   alarm_name = "TherabotHighCPU"
   comparison_operator = "GreaterThanThreshold"
