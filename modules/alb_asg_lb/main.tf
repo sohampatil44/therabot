@@ -2,7 +2,7 @@ resource "aws_lb" "therabot_lb" {
     name = "therabot-alb"
     internal = false
     load_balancer_type = "application"
-    security_groups = [var.alb_sg_id]
+    security_groups = [aws_security_group.alb_sg.id]
     subnets = var.public_subnets
 
     enable_deletion_protection = false
@@ -82,29 +82,35 @@ resource "null_resource" "empty_alb_logs" {
   provisioner "local-exec" {
     command = <<EOT
 # Delete all object versions if any exist
-versions=$(aws s3api list-object-versions \
+versions_json=$(aws s3api list-object-versions \
   --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} \
-  --query='Versions[].{Key:Key,VersionId:VersionId}' \
-  --output=json)
+  --query 'Versions[].{Key:Key,VersionId:VersionId}' \
+  --output json)
 
-if [ "$versions" != "[]" ]; then
+if [ "$versions_json" != "[]" ]; then
   echo "Deleting object versions..."
+  delete_json=$(jq -n --argjson objects "$versions_json" '{Objects: $objects}')
+  echo "$delete_json" > /tmp/delete_versions.json
+
   aws s3api delete-objects \
     --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} \
-    --delete "{\"Objects\":$versions}"
+    --delete file:///tmp/delete_versions.json
 fi
 
 # Delete all delete markers if any exist
-markers=$(aws s3api list-object-versions \
+markers_json=$(aws s3api list-object-versions \
   --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} \
-  --query='DeleteMarkers[].{Key:Key,VersionId:VersionId}' \
-  --output=json)
+  --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' \
+  --output json)
 
-if [ "$markers" != "[]" ]; then
+if [ "$markers_json" != "[]" ]; then
   echo "Deleting delete markers..."
+  delete_json=$(jq -n --argjson objects "$markers_json" '{Objects: $objects}')
+  echo "$delete_json" > /tmp/delete_markers.json
+
   aws s3api delete-objects \
     --bucket ${aws_s3_bucket.alb_logs_bucket.bucket} \
-    --delete "{\"Objects\":$markers}"
+    --delete file:///tmp/delete_markers.json
 fi
 
 echo "Bucket cleanup completed."
@@ -118,6 +124,7 @@ EOT
     aws_s3_bucket_lifecycle_configuration.alb_logs_lifecycle
   ]
 }
+
 
 
 
@@ -150,4 +157,36 @@ resource "aws_s3_bucket_policy" "alb_logs_bucket_policy" {
       }
     ]
   })
+}
+
+#SECURITY GROOUPS SPECIALLY FOR ALBS-----
+#--------------------------------------------------
+
+resource "aws_security_group" "alb_sg" {
+  name = "alb-sg"
+  description = "Allow HTTP/HTTPS ATRAFFIC FROM THE WORLD"
+  vpc_id = var.vpc_id
+
+  ingress {
+    description = "HTTP from anywhere"
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    description = "HTTP from anywhere"
+    from_port = 443
+    to_port = 443
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
 }

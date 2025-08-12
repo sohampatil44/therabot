@@ -52,6 +52,12 @@ resource "aws_iam_role" "cw_role" {
   
 }
 
+resource "aws_iam_group_policy_attachment" "ssm_attach" {
+  group = aws_iam_role.cw_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  
+}
+
 resource "aws_iam_role_policy_attachment" "cw_attach" {
   role = aws_iam_role.cw_role.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
@@ -95,7 +101,9 @@ resource "aws_iam_policy" "custom_cw_policy" {
   })
   
 }
-#CLOUDWATCH KOG GROUP CREATION------------------
+
+
+#CLOUDWATCH LOG GROUP CREATION------------------
 #-----------------------------------------------
 
 resource "aws_cloudwatch_log_group" "system_log" {
@@ -174,6 +182,7 @@ resource "aws_launch_template" "therabot_template" {
   name_prefix = "therabot-"
   image_id = var.ami_id
   instance_type = var.instance_type
+
   key_name = var.key_name
   user_data = base64encode(file("${path.module}/../user_data.sh"))
   iam_instance_profile {
