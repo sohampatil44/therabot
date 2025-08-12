@@ -4,7 +4,13 @@ resource "aws_security_group" "allow_web_ssh" {
     vpc_id = var.vpc_id
 
 
-    
+    ingress {
+  description = "Allow SSH from my IP"
+  from_port = 22
+  to_port = 22
+  protocol = "tcp"
+  cidr_blocks = ["0.0.0.0/0"] # Your public IP here
+}
 
     ingress {
         description = "http from anywhere"

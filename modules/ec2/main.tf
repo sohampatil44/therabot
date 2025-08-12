@@ -52,11 +52,11 @@ resource "aws_iam_role" "cw_role" {
   
 }
 
-resource "aws_iam_group_policy_attachment" "ssm_attach" {
-  group = aws_iam_role.cw_role.name
+resource "aws_iam_role_policy_attachment" "ssm_attach" {
+  role       = aws_iam_role.cw_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-  
 }
+
 
 resource "aws_iam_role_policy_attachment" "cw_attach" {
   role = aws_iam_role.cw_role.name
