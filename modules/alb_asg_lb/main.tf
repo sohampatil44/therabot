@@ -63,6 +63,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "alb_logs_lifecycle" {
   rule {
     id = "ExpireAllVersions"
     status = "Enabled"
+
+    filter {
+      prefix = "AWSLogs/"
+    }
     noncurrent_version_expiration {
       noncurrent_days  = 1
     }
