@@ -126,13 +126,35 @@ resource "aws_cloudwatch_metric_alarm" "therabot_cpu_alarm" {
   namespace = "AWS/EC2"
   period = "120"
   statistic = "Average"
-  alarm_description = "This metric monitors EC2 CPU utilization for Therabot"
+  alarm_description = "scale out if cpu>70% across asg"
   dimensions = {
-    InstanceId = aws_instance.ec21.id
+    AutoScalingGroupName = aws_autoscaling_group.therabot_asg.name
   }
-  actions_enabled = false
+  actions_enabled = true
+  alarm_actions = [aws_sns_topic.asg_notifications.arn, 
+                   aws_autoscaling_policy.scale_out.arn]
+  
   
 }
+resource "aws_cloudwatch_metric_alarm" "therabot_cpu_low_alarm" {
+  alarm_name          = "TherabotLowCPU"
+  comparison_operator = "LessThanThreshold"
+  threshold           = 30
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 120
+  statistic           = "Average"
+  alarm_description   = "Scale in if CPU < 30% across ASG"
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.therabot_asg.name
+  }
+  actions_enabled      = true
+   alarm_actions = [aws_sns_topic.asg_notifications.arn,
+                    aws_autoscaling_policy.scale_in.arn]
+
+}
+
 
 resource "aws_cloudwatch_metric_alarm" "high_request_alarm" {
   alarm_name = "TherabotHighRequestCount"
@@ -149,7 +171,8 @@ resource "aws_cloudwatch_metric_alarm" "high_request_alarm" {
     LoadBalancer = var.lb_suffix
   }
 
-  alarm_actions = [aws_autoscaling_policy.scale_out.arn]
+  alarm_actions = [aws_autoscaling_policy.scale_out.arn,
+                   aws_sns_topic.asg_notifications.arn]
   
 }
 resource "aws_cloudwatch_metric_alarm" "low_request_alarm" {
@@ -166,7 +189,8 @@ resource "aws_cloudwatch_metric_alarm" "low_request_alarm" {
     TargetGroup= var.therabot_arn_suffix
     LoadBalancer = var.lb_suffix
   }
-  alarm_actions = [aws_autoscaling_policy.scale_in.arn]
+  alarm_actions = [aws_autoscaling_policy.scale_in.arn,
+                   aws_sns_topic.asg_notifications.arn]
   
 }
 
