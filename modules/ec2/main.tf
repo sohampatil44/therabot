@@ -234,7 +234,7 @@ resource "aws_launch_template" "lt-k3s-master" {
   image_id = var.ami_id
   instance_type = var.instance_type
   key_name = var.key_name
-  user_data = base64encode(file("${path.module}/../k3s_master_userdata.sh"))
+  user_data = base64encode(file("${path.module}/../master_user_data.sh"))
   iam_instance_profile {
     name = aws_iam_instance_profile.master_profile.name
   }
@@ -259,7 +259,7 @@ resource "aws_launch_template" "lt-k3s-worker" {
   image_id = var.ami_id
   instance_type = var.instance_type
   key_name = var.key_name
-  user_data = base64encode(file("${path.module}/../k3s_worker_userdata.sh"))
+  user_data = base64encode(file("${path.module}/../worker_user_data.sh"))
   iam_instance_profile {
     name = aws_iam_instance_profile.Worker_profile.name
   }
