@@ -375,6 +375,29 @@ resource "aws_autoscaling_group" "therabot_asg" {
   
   
 }
+resource "aws_autoscaling_group" "k3s_master_asg" {
+  desired_capacity = 1
+  min_size = 1
+  max_size = 1
+  vpc_zone_identifier = [var.subnet_id]
+  launch_template {
+    id = aws_launch_template.lt-k3s-master.id
+    version = "$Latest"
+  }
+  
+}
+
+resource "aws_autoscaling_group" "k3s_worker_asg" {
+  desired_capacity = 2
+  min_size = 1
+  max_size = 3
+  vpc_zone_identifier = [var.subnet_id]
+  launch_template {
+    id = aws_launch_template.lt-k3s-worker.id
+    version = "$Latest"
+  }
+  
+}
 
 resource "aws_autoscaling_policy" "scale_out" {
   name = "scale-out"
