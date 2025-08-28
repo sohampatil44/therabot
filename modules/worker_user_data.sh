@@ -3,7 +3,6 @@
 
 set -xe
 exec > >(tee /var/log/worker_user_data.log | logger -t worker_user_data -s 2>/dev/console) 2>&1
-dnf remove -y curl-minimal
 yum install -y curl
 
 yum update -y 
