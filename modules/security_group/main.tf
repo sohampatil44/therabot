@@ -34,6 +34,22 @@ resource "aws_security_group" "allow_web_ssh" {
         protocol = "-1" # -1 means all protocols
         cidr_blocks = ["0.0.0.0/0"]
     }
+
+    ingress {
+        description = "Allow k3s server communication"
+        from_port = 6443
+        to_port = 6443
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    ingress {
+        description = "Allow NodePort range"
+        from_port = 30000
+        to_port = 32767
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
     tags = {
       Name = "therabot-sg"
     }

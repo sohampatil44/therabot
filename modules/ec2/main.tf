@@ -227,6 +227,133 @@ resource "aws_launch_template" "therabot_template" {
   
 }
 
+#tiny master asg for k3s
+
+resource "aws_launch_template" "lt-k3s-master" {
+  name_prefix = "asg-k3s-master"
+  image_id = var.ami_id
+  instance_type = var.instance_type
+  key_name = var.key_name
+  user_data = base64encode(file("${path.module}/../k3s_master_userdata.sh"))
+  iam_instance_profile {
+    name = aws_iam_instance_profile.master_profile.name
+  }
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [var.security_group_id]
+  }
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs{
+      volume_size = 32
+      volume_type = "gp3"
+    }
+  }
+
+  
+}
+
+#worker asg template
+resource "aws_launch_template" "lt-k3s-worker" {
+  name_prefix = "asg-k3s-worker"
+  image_id = var.ami_id
+  instance_type = var.instance_type
+  key_name = var.key_name
+  user_data = base64encode(file("${path.module}/../k3s_worker_userdata.sh"))
+  iam_instance_profile {
+    name = aws_iam_instance_profile.Worker_profile.name
+  }
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [var.security_group_id]
+  }
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs{
+      volume_size = 32
+      volume_type = "gp3"
+    }
+  }
+
+  
+}
+#iam role for k3s asg master
+resource "aws_iam_role" "k3s_role_master" {
+  name="k3sMasterRole"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        },
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+  
+}
+#iam role for k3s asg worker
+resource "aws_iam_role" "k3s_role_worker" {
+  name="k3sWorkerRole"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        },
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+  
+}
+
+resource "aws_iam_role_policy" "k3s_master_policy" {
+  name = "k3sMaterPolicy"
+  role = aws_iam_role.k3s_role_master.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["ssm:PutParameter"]
+      Resource = "*"
+    }]
+  })
+  
+
+  
+}
+resource "aws_iam_role_policy" "k3s_worker_policy" {
+  name = "k3sWorkerPolicy"
+  role = aws_iam_role.k3s_role_worker.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["ssm:GetParameter"]
+      Resource = "*"
+    }]
+  })
+}
+
+#instance profiles for k3s asgs
+
+resource "aws_iam_instance_profile" "master_profile" {
+  name = "k3sMasterInstanceProfile"
+  role = aws_iam_role.k3s_role_master.name
+  
+}
+resource "aws_iam_instance_profile" "Worker_profile" {
+  name = "k3WorkerInstanceProfile"
+  role = aws_iam_role.k3s_role_worker.name
+  
+}
+#-------------------------------------------------------------
+
 resource "aws_autoscaling_group" "therabot_asg" {
   desired_capacity = 1
   max_size = 3

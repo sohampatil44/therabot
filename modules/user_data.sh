@@ -50,6 +50,36 @@ docker --version
 
 
 
+#Installing light weight kubernetes k3s
+echo "Installing k3s..."
+curl -sfL https://get.k3s.io | sh -s - server \
+    --node-taint CriticalAddonsOnly=true:NoExecute \
+    --write-kubeconfig-mode 644
+
+
+
+# Export KUBERCONFIG
+echo "Exporting KUBECONFIG..."
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+# Ensure kubectl is available
+echo "Verifying kubectl installation..."
+if command -v kubectl >/dev/null 2>&1; then
+    echo "kubectl installed successfully: $(kubectl version --client --short)"
+else
+    echo "kubectl installation failed. Trying to install kubectl..."
+    sudo yum install -y kubectl || {
+        echo "Failed to install kubectl. Exiting..."
+        exit 1 
+    }
+    echo "kubectl installed successfully: $(kubectl version --client --short)"
+ 
+fi
+
+# Wait for some time for k3s to start
+sleep 20
+
+
 
 
 
@@ -161,6 +191,8 @@ else
     echo "Failed to clone repository. Check if the repository exists and is accessible."
     exit 1
 fi
+
+
 
 # Wait for successful clone and verify
 echo "Verifying repository clone..."
