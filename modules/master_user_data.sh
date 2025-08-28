@@ -2,11 +2,14 @@
 
 set -xe
 exec > >(tee /var/log/master_user_data.log | logger -t master_user_data -s 2>/dev/console) 2>&1
+dnf remove -y curl-minimal
+yum install -y curl
+
 yum update -y
 
 
-yum install -y curl wget unzip jq amazon-ssm-agent
-yum install -y curl python3 awscli
+yum install -y  wget unzip jq amazon-ssm-agent
+yum install -y  python3 awscli
 
 #enable and start ssm agent
 
