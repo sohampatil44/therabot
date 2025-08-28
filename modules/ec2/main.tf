@@ -384,6 +384,11 @@ resource "aws_autoscaling_group" "k3s_master_asg" {
     id = aws_launch_template.lt-k3s-master.id
     version = "$Latest"
   }
+  tag {
+    key = "Name"
+    value = "k3s-master-asg"
+    propagate_at_launch = true
+  }
   
 }
 
@@ -395,6 +400,11 @@ resource "aws_autoscaling_group" "k3s_worker_asg" {
   launch_template {
     id = aws_launch_template.lt-k3s-worker.id
     version = "$Latest"
+  }
+  tag {
+    key = "Name"
+    value = "k3s-worker-asg"
+    propagate_at_launch = true
   }
   
 }
