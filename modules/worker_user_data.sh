@@ -17,7 +17,7 @@ systemctl start amazon-ssm-agent
 
 #fetch token from ssm
 
-TOKEN=$(aws ssm get-parameter --name "/k3s/token" --with-decryption --query "Parameter.Value" --output text --region $(AWS_REGION:-us-east-1))
+TOKEN=$(aws ssm get-parameter --name "/k3s/token" --with-decryption --query "Parameter.Value" --output text --region $(AWS_REGION:-us-east-1)) 
 
 
 #Fetch master priv IP from ASG or known value

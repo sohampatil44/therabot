@@ -29,7 +29,7 @@ chown ec2-user:ec2-user /home/ec2-user/kubeconfig
 
 #push k3s token to SSM parameter store
 TOKEN=$(cat /tmp/k3s_token)
-aws ssm put-parameter --name "/k3s/token" --value "$TOKEN" --type "SecureString" --region "us-east-1"
+aws ssm put-parameter --name "/k3s/token" --value "$TOKEN" --type "SecureString" --region "us-east-1" --overwrite
 
 
 #save master private ip to ssm
