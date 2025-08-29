@@ -2,7 +2,6 @@
 
 set -xe
 exec > >(tee /var/log/master_user_data.log | logger -t master_user_data -s 2>/dev/console) 2>&1
-yum install -y curl
 
 yum update -y
 
