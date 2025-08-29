@@ -17,11 +17,13 @@ systemctl start amazon-ssm-agent
 
 #fetch token from ssm
 
-TOKEN=$(aws ssm get-parameter --name "/k3s/token" --with-decryption --query "Parameter.Value" --output text --region $(AWS_REGION:-us-east-1)) 
+# Fetch token from ssm
+TOKEN=$(aws ssm get-parameter --name "/k3s/token" --with-decryption --query "Parameter.Value" --output text --region "${AWS_REGION:-us-east-1}")
+
+# Fetch master private IP
+MASTER_IP=$(aws ssm get-parameter --name "/k3s/master/private_ip" --query "Parameter.Value" --output text --region "${AWS_REGION:-us-east-1}")
 
 
-#Fetch master priv IP from ASG or known value
-MASTER_IP=$(aws ssm get-parameter --name "/k3s/master/private_ip" --query "Parameter.Value" --output text --region $(AWS_REGION:-us-east-1))
 
 #install k3s agent (worker node)
 curl -sfL https://get.k3s.io | K3S_URL="https://${MASTER_IP}:6443" K3S_TOKEN="$TOKEN" sh -

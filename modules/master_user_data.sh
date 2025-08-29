@@ -35,10 +35,17 @@ aws ssm put-parameter --name "/k3s/token" --value "$TOKEN" --type "SecureString"
 #save master private ip to ssm
 
 
-MASTER_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+while true; do
+    MASTER_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+    if [[ -n "$MASTER_IP" ]]; then
+        break
+    fi
+    echo "Waiting for instance metadata service..."
+    sleep 5
+done    
 aws ssm put-parameter \
     --name "/k3s/master/private_ip" \
     --value "$MASTER_IP" \
     --type "String" \
     --overwrite \
-    --region $(AWS_REGION:-us-east-1)
+    --region "${AWS_REGION:-us-east-1}"
