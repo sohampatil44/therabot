@@ -21,8 +21,14 @@ systemctl start amazon-ssm-agent
 TOKEN=$(aws ssm get-parameter --name "/k3s/token" --with-decryption --query "Parameter.Value" --output text --region "${AWS_REGION:-us-east-1}")
 
 # Fetch master private IP
-MASTER_IP=$(aws ssm get-parameter --name "/k3s/master/private_ip" --query "Parameter.Value" --output text --region "${AWS_REGION:-us-east-1}")
-
+while true; do
+    MASTER_IP=$(aws ssm get-parameter --name "/k3s/master/private_ip" --query "Parameter.Value" --output text --region "${AWS_REGION:-us-east-1}")
+    if [[ -n "MASTER_IP"]]; then
+        break
+    fi
+    echo "Waiting for master private IP in SSM..."
+    sleep 5
+done
 
 
 #install k3s agent (worker node)
