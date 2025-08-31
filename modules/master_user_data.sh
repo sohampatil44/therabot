@@ -36,13 +36,21 @@ aws ssm put-parameter --name "/k3s/token" --value "$TOKEN" --type "SecureString"
 
 
 while true; do
-    MASTER_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
-    if [[ -n "$MASTER_IP" ]]; then
-        break
-    fi
-    echo "Waiting for instance metadata service..."
-    sleep 5
-done    
+    # Get IMDSv2 token
+    TOKEN_IMDS=$(curl -X PUT "http://169.254.169.254/latest/api/token" \
+        -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+    
+   # Fetch private IP using the token
+    MASTER_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN_IMDS" \
+        -s http://169.254.169.254/latest/meta-data/local-ipv4)
+
+        if [[ -n "MASTER_IP" ]]; then
+            break
+        fi
+
+        echo "Waiting for instance metadata service"
+        sleep 5
+done             
 aws ssm put-parameter \
     --name "/k3s/master/private_ip" \
     --value "$MASTER_IP" \
