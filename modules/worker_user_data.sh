@@ -23,7 +23,7 @@ TOKEN=$(aws ssm get-parameter --name "/k3s/token" --with-decryption --query "Par
 # Fetch master private IP
 while true; do
     MASTER_IP=$(aws ssm get-parameter --name "/k3s/master/private_ip" --query "Parameter.Value" --output text --region "${AWS_REGION:-us-east-1}")
-    if [[ -n "MASTER_IP"]]; then
+    if [[ -n "$MASTER_IP" ]]; then
         break
     fi
     echo "Waiting for master private IP in SSM..."
