@@ -39,8 +39,5 @@ cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/kubeconfig
 chown ec2-user:ec2-user /home/ec2-user/kubeconfig
 chmod 644 /home/ec2-user/kubeconfig
 
-#verify node has joined the cluster
-sleep 20
-kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig    
-kubectl get pods -A --kubeconfig /home/ec2-user/kubeconfig
+
 

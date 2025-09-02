@@ -57,3 +57,12 @@ aws ssm put-parameter \
     --type "String" \
     --overwrite \
     --region "${AWS_REGION:-us-east-1}"
+
+ #verify node has joined the cluster
+while ! kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig | grep -q 'Ready'; do
+    echo "Waiting for worker nodes to join the cluster..."
+    sleep 10
+done   
+
+#checking pods
+kubectl get pods -A --kubeconfig /home/ec2-user/kubeconfig   
