@@ -1,9 +1,9 @@
 name: Therabot deployement
 
 on:
-  push:
-    branches:
-      - main
+  #push:
+    #branches:
+      #- main
 
 
     tags:
