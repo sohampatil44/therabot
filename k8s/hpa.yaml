@@ -2,6 +2,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: therabot-h3-hpa
+  namespace: development
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
