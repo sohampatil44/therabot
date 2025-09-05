@@ -1,0 +1,123 @@
+name: Therabot deployement
+
+on:
+  push:
+    branches:
+      - main
+
+
+    tags:
+      - deploy-dev
+      - deploy-prod
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Deployement stage (dev/prod)"
+        required: true
+        default: "dev"
+        
+jobs:
+  deploy:
+    name: Deploy to therabot-${{ github.event.inputs.stage}}
+    runs-on: ubuntu-latest
+    
+    env:
+        AWS_REGION: us-east-1
+        STAGE: ${{ github.event.inputs.stage || 'dev'}}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCEESS_KEY_ID}}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION}}  
+
+      #First terraform part then Kubernetes part
+      
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+        
+      - name: Terraform apply
+        working-directory: ./terraform
+        run: | 
+          terraform apply -auto-approve \
+          -var-stage="${{ github.event.inputs.stage || 'dev' }}" \
+          -var-file="${{ github.event.inputs.stage || 'dev' }}.tfvars"
+          -var="github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
+
+      - name: GET ALB DNS
+        working-directory: ./terraform
+        run: |
+          alb_dns=$(terraform output -raw alb_dns_name)
+          echo "ALB_DNS=$alb_dns" >> $GITHUB_ENV
+          
+          
+
+      - name: Get EC2 public IP   
+        id: ec2_ip 
+        run: |
+          ip=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=techeazy-instance" \
+            --query "Reservations[*].Instances[*].PublicIpAddress" \
+            --output text | tr -d '\r' | tr -d '\n' | awk '{print $1}')
+          if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "EC2_PUBLIC_IP=$ip" >> $GITHUB_ENV
+            echo "ec2_public_ip=$ip" >> $GITHUB_OUTPUT
+            echo "::debug::EC2_PUBLIC_IP is $ip"
+          else
+            echo "::error::Invalid IP address format: $ip"
+            exit 1
+          fi
+
+      - name: Wait for EC2 SSH
+        run: |
+          echo "Waiting for EC2 to be ready..."
+          sleep 60
+
+      - name: Show App URL
+        run: echo "App live on http://{{ env.ALB_DNS }}"
+
+
+# now k3s part
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Setup SSH to Master Node
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_KEYPAIR_PRIVATE_KEY }}" > ~/.ssh/network-keypair.pem
+          chmod 600 ~/.ssh/network-keypair.pem
+          
+      - name: Copy kubeconfig from Master
+        run: |
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/network-keypair.pem ec2-user@${{ steps.ec2_ip.outputs.ec2_public_ip }}:/home/ec2-user/kubeconfig ./kubeconfig
+          
+          
+      - name: Deploy manifests to k3s cluster
+        run: |
+          export KUBECONFIG=./kubeconfig
+          kubectl apply -f k8s/
+          
+      - name: Show App URL
+        run: echo "Kubernetes app is live on http://${{ steps.ec2_ip.outputs.ec2_public_ip }}:30080"
+          
+
+      
+        
+        
+
+            

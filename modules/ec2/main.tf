@@ -453,7 +453,7 @@ resource "aws_cloudwatch_event_rule" "asg_events" {
 resource "aws_cloudwatch_event_target" "sns_target" {
   rule = aws_cloudwatch_event_rule.asg_events.name
   arn = aws_sns_topic.asg_notifications.arn
-  target_id = "sns-topc"
+  target_id = "sns-topic"
   
 }
 resource "aws_sns_topic" "asg_notifications" {
