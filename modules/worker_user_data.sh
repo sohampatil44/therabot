@@ -22,7 +22,7 @@ fallocate -l $SWAPSIZE $SWAPFILE || dd if=/dev/zero of=$SWAPFILE bs=1M count=409
 chmod 600 $SWAPFILE
 mkswap $SWAPFILE
 swapon $SWAPFILE
-echo "$SWAPFILE swap swap defaults 0 0" >> /etc/fstab
+echo "$SWAPFILE none swap sw 0 0" >> /etc/fstab
 
 
 # -----------------------------
@@ -35,7 +35,9 @@ ExecStart=
 ExecStart=/usr/local/bin/k3s agent --kubelet-arg=fail-swap-on=false
 EOF
 
-systemctl daemon-reexec
+systemctl daemon-reload
+systemctl restart k3s-agent
+
 
 #fetch token from ssm
 TOKEN=$(aws ssm get-parameter --name "/k3s/token" --with-decryption --query "Parameter.Value" --output text --region "${AWS_REGION:-us-east-1}")
@@ -53,7 +55,4 @@ done
 #install k3s agent (worker node)
 curl -sfL https://get.k3s.io | K3S_URL="https://${MASTER_IP}:6443" K3S_TOKEN="$TOKEN" sh -
 
-#setup kubeconfig for ec2-user
-cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/kubeconfig
-chown ec2-user:ec2-user /home/ec2-user/kubeconfig
-chmod 644 /home/ec2-user/kubeconfig
+

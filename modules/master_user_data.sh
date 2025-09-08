@@ -17,6 +17,12 @@ if ! swapon --show | grep -q "$SWAPFILE"; then
     echo "$SWAPFILE none swap sw 0 0" >> /etc/fstab
 fi
 # -----------------------------
+# 4. INSTALL K3S MASTER
+# -----------------------------
+curl -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644
+
+sleep 20
+# -----------------------------
 # 1b. ALLOW SWAP IN K3S
 # -----------------------------
 mkdir -p /etc/systemd/system/k3s.service.d
@@ -25,7 +31,7 @@ cat <<EOF > /etc/systemd/system/k3s.service.d/override.conf
 ExecStart=
 ExecStart=/usr/local/bin/k3s server --kubelet-arg=fail-swap-on=false --write-kubeconfig-mode 644
 EOF
-systemctl daemon-reexec
+systemctl daemon-reload
 systemctl restart k3s
 
 # -----------------------------
@@ -43,15 +49,14 @@ yum install -y python3 awscli
 systemctl enable amazon-ssm-agent
 systemctl start amazon-ssm-agent
 
-# -----------------------------
-# 4. INSTALL K3S MASTER
-# -----------------------------
-curl -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644
 
-sleep 20
 
 # Save k3s token for worker nodes
 mkdir -p /var/lib/rancher/k3s/server
+while [ ! -f /var/lib/rancher/k3s/server/node-token ]; do
+    echo "Waiting for k3s node-token..."
+    sleep 5
+done
 cp /var/lib/rancher/k3s/server/node-token /tmp/k3s_token
 
 # Store kubeconfig in a secure location
