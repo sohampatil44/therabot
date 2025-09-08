@@ -13,14 +13,29 @@ yum install -y python3 awscli
 systemctl enable amazon-ssm-agent
 systemctl start amazon-ssm-agent
 
-# ---- ADD SWAP ----
+# -----------------------------
+# 1. CREATE 4G SWAP
+# -----------------------------
 SWAPFILE=/swapfile
-fallocate -l 8G $SWAPFILE || dd if=/dev/zero of=$SWAPFILE bs=1M count=8192
+SWAPSIZE=4G
+fallocate -l $SWAPSIZE $SWAPFILE || dd if=/dev/zero of=$SWAPFILE bs=1M count=4096
 chmod 600 $SWAPFILE
 mkswap $SWAPFILE
 swapon $SWAPFILE
 echo "$SWAPFILE swap swap defaults 0 0" >> /etc/fstab
-# ------------------
+
+
+# -----------------------------
+# ALLOW SWAP IN K3S AGENT
+# -----------------------------
+mkdir -p /etc/systemd/system/k3s-agent.service.d
+cat <<EOF > /etc/systemd/system/k3s-agent.service.d/override.conf
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/k3s agent --kubelet-arg=fail-swap-on=false
+EOF
+
+systemctl daemon-reexec
 
 #fetch token from ssm
 TOKEN=$(aws ssm get-parameter --name "/k3s/token" --with-decryption --query "Parameter.Value" --output text --region "${AWS_REGION:-us-east-1}")

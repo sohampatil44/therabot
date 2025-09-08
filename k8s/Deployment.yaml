@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: therabot-k3s
+  namespace: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: therabot-k3s
+  template:
+    metadata:
+      labels:
+        app: therabot-k3s
+    spec:
+      containers:
+        - name: therabot-k3s-container
+          image: soham444/therabot:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python3", "app.py"]  # Use Flask dev server
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+          env:
+            - name: PORT
+              value: "5000"

@@ -105,6 +105,15 @@ jobs:
       - name: Copy kubeconfig from Master
         run: |
           scp -o StrictHostKeyChecking=no -i ~/.ssh/network-keypair.pem ec2-user@${{ steps.ec2_ip.outputs.ec2_public_ip }}:/home/ec2-user/kubeconfig ./kubeconfig
+
+      - name: Create namespace if not exists
+        run: |
+          if ! kubectl get namespace development; then
+            export KUBECONFIG=./kubeconfig
+            kubectl get namespace development || kubectl create namespace development
+          else
+            echo "Namespace 'development' already exists."
+          fi    
           
           
       - name: Deploy manifests to k3s cluster

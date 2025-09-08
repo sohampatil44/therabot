@@ -50,6 +50,27 @@ resource "aws_security_group" "allow_web_ssh" {
         protocol = "tcp"
         cidr_blocks = ["0.0.0.0/0"]
     }
+
+    #flannel vxlan port
+    ingress {
+        description = "Allow flannel vxlan port"
+        from_port = 8472
+        to_port = 8472
+        protocol = "udp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+    ingress {
+        from_port = 5000
+        to_port = 5000
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+    ingress {
+        from_port = 30080
+        to_port = 30080
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
     tags = {
       Name = "therabot-sg"
     }

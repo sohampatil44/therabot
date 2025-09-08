@@ -19,4 +19,9 @@ torch==2.0.1
 torchvision==0.15.2
 fastai==2.7.12
 
+# Transformers for NLP
+transformers==4.44.0
 
+sentence-transformers
+google-generativeai
+python-dotenv

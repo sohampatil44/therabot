@@ -4,19 +4,29 @@ set -xe
 exec > >(tee /var/log/master_user_data.log | logger -t master_user_data -s 2>/dev/console) 2>&1
 
 # -----------------------------
-# 1. CREATE LARGE SWAP (before any heavy install)
+# 1. CREATE 4G SWAP
 # -----------------------------
 SWAPFILE=/swapfile
-SWAPSIZE=8G   # Increased to 8GB for safety on tiny instances
+SWAPSIZE=4G
 
-# check if swap already exists
 if ! swapon --show | grep -q "$SWAPFILE"; then
-    fallocate -l $SWAPSIZE $SWAPFILE
+    fallocate -l $SWAPSIZE $SWAPFILE || dd if=/dev/zero of=$SWAPFILE bs=1M count=4096
     chmod 600 $SWAPFILE
     mkswap $SWAPFILE
     swapon $SWAPFILE
     echo "$SWAPFILE none swap sw 0 0" >> /etc/fstab
 fi
+# -----------------------------
+# 1b. ALLOW SWAP IN K3S
+# -----------------------------
+mkdir -p /etc/systemd/system/k3s.service.d
+cat <<EOF > /etc/systemd/system/k3s.service.d/override.conf
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/k3s server --kubelet-arg=fail-swap-on=false --write-kubeconfig-mode 644
+EOF
+systemctl daemon-reexec
+systemctl restart k3s
 
 # -----------------------------
 # 2. UPDATE SYSTEM

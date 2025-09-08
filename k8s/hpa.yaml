@@ -1,19 +1,19 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: therabot-h3-hpa
+  name: therabot-hpa
   namespace: development
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: therabot-k3s
-  minReplicas: 2
-  maxReplicas: 5
+  minReplicas: 1
+  maxReplicas: 1
   metrics:
   - type: Resource
-    resource: 
+    resource:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 70 
+        averageUtilization: 80
