@@ -17,32 +17,35 @@ spec:
         - name: therabot-k3s-container
           image: soham444/therabot:latest
           imagePullPolicy: IfNotPresent
-          command: ["python3", "app.py"]  # Use Flask dev server
           ports:
-            - containerPort: 5000
+            - containerPort: 8000
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "100m"
+              memory: "1Gi"       # TF needs more memory
+              cpu: "500m"
             limits:
-              memory: "256Mi"
-              cpu: "250m"
+              memory: "2Gi"
+              cpu: "1"
+          env:
+            - name: PORT
+              value: "8000"
+            - name: WEB_CONCURRENCY
+              value: "1"        # Single Gunicorn worker
+            - name: MAX_REQUESTS
+              value: "1000"
           livenessProbe:
             httpGet:
               path: /
-              port: 5000
-            initialDelaySeconds: 90
+              port: 8000
+            initialDelaySeconds: 120
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /
-              port: 5000
-            initialDelaySeconds: 60
+              port: 8000
+            initialDelaySeconds: 90
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 5
-          env:
-            - name: PORT
-              value: "5000"

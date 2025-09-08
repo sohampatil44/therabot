@@ -232,7 +232,7 @@ resource "aws_launch_template" "therabot_template" {
 resource "aws_launch_template" "lt-k3s-master" {
   name_prefix = "asg-k3s-master"
   image_id = var.ami_id
-  instance_type = "t3.medium"
+  instance_type = "t3.large"
   key_name = var.key_name
   user_data = base64encode(file("${path.module}/../master_user_data.sh"))
   iam_instance_profile {
@@ -257,7 +257,7 @@ resource "aws_launch_template" "lt-k3s-master" {
 resource "aws_launch_template" "lt-k3s-worker" {
   name_prefix = "asg-k3s-worker"
   image_id = var.ami_id
-  instance_type = "t3.medium"
+  instance_type = "t3.large"
   key_name = var.key_name
   user_data = base64encode(file("${path.module}/../worker_user_data.sh"))
   iam_instance_profile {
