@@ -12,3 +12,14 @@ variable "key_name" {
   
 }
 
+variable "stage" {
+  description = "Deployement stage (dev/prod)"
+  type = string
+  default = "dev"
+  
+}
+variable "github_token" {
+  description = "Github token for repo access"
+  type = string
+  
+}
