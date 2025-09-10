@@ -48,7 +48,7 @@ jobs:
         run: terraform init
         
       - name: Terraform apply
-        working-directory: ./terraform
+        working-directory: ./
         run: | 
           terraform apply -auto-approve \
           -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
@@ -56,7 +56,7 @@ jobs:
           -var="github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
 
       - name: GET ALB DNS
-        working-directory: ./terraform
+        working-directory: ./
         run: |
           alb_dns=$(terraform output -raw alb_dns_name)
           echo "ALB_DNS=$alb_dns" >> $GITHUB_ENV
