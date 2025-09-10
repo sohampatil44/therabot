@@ -52,7 +52,7 @@ jobs:
         run: | 
           terraform apply -auto-approve \
           -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
-          terraform.tfvars"
+          -var-file="terraform.tfvars" \
           -var="github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
 
       - name: GET ALB DNS
