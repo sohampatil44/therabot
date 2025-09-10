@@ -63,6 +63,14 @@ cp /var/lib/rancher/k3s/server/node-token /tmp/k3s_token
 cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/kubeconfig
 chown ec2-user:ec2-user /home/ec2-user/kubeconfig
 
+# Push kubeconfig to SSM parameter store
+aws ssm put-parameter \
+  --name "/therabot/kubeconfig" \
+  --type "SecureString" \
+  --value "$(cat /home/ec2-user/kubeconfig)" \
+  --overwrite \
+  --region "${AWS_REGION:-us-east-1}"
+
 # Push k3s token to SSM parameter store
 TOKEN=$(cat /tmp/k3s_token)
 aws ssm put-parameter --name "/k3s/token" --value "$TOKEN" --type "SecureString" --region "us-east-1" --overwrite

@@ -1,9 +1,9 @@
 name: Therabot deployement
 
 on:
-  #push:
-    #branches:
-      #- main
+  push:
+    branches:
+      - main
 
 
     tags:
@@ -51,7 +51,7 @@ jobs:
         working-directory: ./terraform
         run: | 
           terraform apply -auto-approve \
-          -var-stage="${{ github.event.inputs.stage || 'dev' }}" \
+          -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
           -var-file="${{ github.event.inputs.stage || 'dev' }}.tfvars"
           -var="github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
 
@@ -85,7 +85,7 @@ jobs:
           sleep 60
 
       - name: Show App URL
-        run: echo "App live on http://{{ env.ALB_DNS }}"
+        run: echo "App live on http://${{ env.ALB_DNS }}"
 
 
 # now k3s part
@@ -102,15 +102,26 @@ jobs:
           echo "${{ secrets.EC2_KEYPAIR_PRIVATE_KEY }}" > ~/.ssh/network-keypair.pem
           chmod 600 ~/.ssh/network-keypair.pem
           
-      - name: Copy kubeconfig from Master
+      - name: fetch kubeconfig from SSM
         run: |
-          scp -o StrictHostKeyChecking=no -i ~/.ssh/network-keypair.pem ec2-user@${{ steps.ec2_ip.outputs.ec2_public_ip }}:/home/ec2-user/kubeconfig ./kubeconfig
+          aws ssm get-parameter \
+            --name "/therabot/kubeconfig" \
+            --with-decryption \
+            --query "Parameter.Value" \
+            --output text > kubeconfig
+          chmod 600 kubeconfig
+              
+     # - name: Copy kubeconfig from Master
+        #run: |
+          #scp -o StrictHostKeyChecking=no -i ~/.ssh/network-keypair.pem ec2-user@${{ steps.ec2_ip.outputs.ec2_public_ip }}:/home/ec2-user/kubeconfig ./kubeconfig
 
       - name: Create namespace if not exists
         run: |
-          if ! kubectl get namespace development; then
-            export KUBECONFIG=./kubeconfig
-            kubectl get namespace development || kubectl create namespace development
+          export KUBECONFIG=./kubeconfig
+          if ! kubectl get namespace development >/dev/null 2>&1; then
+            
+            kubectl create namespace development
+            echo "Namespace 'development' created."
           else
             echo "Namespace 'development' already exists."
           fi    
@@ -124,7 +135,17 @@ jobs:
       - name: Show App URL
         run: echo "Kubernetes app is live on http://${{ steps.ec2_ip.outputs.ec2_public_ip }}:30080"
           
+      - name: Verify Deployement
+        run: |
+          export KUBECONFIG=./kubeconfig
+          kubectl get all -n development
+          kubectl get hpa -n development
+          kubectl get svc -n development
 
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ./kubeconfig   
       
         
         
