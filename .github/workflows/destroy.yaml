@@ -3,7 +3,7 @@ name: Destroy Infrastructure
 on:
   workflow_dispatch:
 
-    
+
 
 
 jobs:
@@ -25,13 +25,13 @@ jobs:
           terraform_version: 1.5.7
 
       - name: Terraform Init
-        working-directory: ./terraform
+        working-directory: ./
         run: terraform init
 
       - name: Terraform Plan Destroy
-        working-directory: ./terraform
+        working-directory: ./
         run: terraform plan -destroy
 
       - name: Terraform Destroy
-        working-directory: ./terraform
+        working-directory: ./
         run: terraform destroy -auto-approve
