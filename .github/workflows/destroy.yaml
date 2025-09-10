@@ -30,8 +30,15 @@ jobs:
 
       - name: Terraform Plan Destroy
         working-directory: ./
-        run: terraform plan -destroy
+        run: terraform plan -destroy \
+          -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
+            -var-file="terraform.tfvars" \
+            -var="github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
+
 
       - name: Terraform Destroy
         working-directory: ./
-        run: terraform destroy -auto-approve
+        run: terraform destroy -auto-approve \
+          -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
+          -var-file="terraform.tfvars" \
+          -var="github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
