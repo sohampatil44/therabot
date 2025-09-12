@@ -67,7 +67,7 @@ jobs:
       # Save Terraform debug logs as artifact (optional, for troubleshooting)
       - name: Upload Terraform Logs
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-logs
           path: terraform-apply.log
