@@ -34,6 +34,16 @@ jobs:
         with:
           terraform_version: 1.5.7
 
+      # Terraform Init (with remote backend)
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=therabot-terraform-state" \
+            -backend-config="key=therabot/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="dynamodb_table=therabot-terraform-lock" \
+            -backend-config="encrypt=true"    
+
       - name: Terraform Plan
         id: terraform_plan
         run: |
@@ -43,15 +53,7 @@ jobs:
               -var-file="terraform.tfvars" \
               -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}"    
 
-      # Terraform Init (with remote backend)
-      - name: Terraform Init
-        run: |
-          terraform init \
-            -backend-config="bucket=therabot-terraform-state" \
-            -backend-config="key=therabot/terraform.tfstate" \
-            -backend-config="region=us-east-1" \
-            -backend-config="dynamodb_table=therabot-terraform-lock" \
-            -backend-config="encrypt=true"
+      
 
       # Terraform Apply
       - name: Terraform Apply
