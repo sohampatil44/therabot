@@ -158,7 +158,7 @@ jobs:
           export KUBECONFIG=./kubeconfig
           
           # Wait up to 5 minutes for cluster to be accessible
-          timeout=300
+          timeout=600
           elapsed=0
           interval=15
           

@@ -5,16 +5,15 @@ exec > >(tee /var/log/worker_user_data.log | logger -t worker_user_data -s 2>/de
 
 yum update -y 
 
-#Install dependencies
-yum install -y wget unzip jq amazon-ssm-agent
-yum install -y python3 awscli
-
-#enable and start ssm agent
+# -----------------------------
+# 1. INSTALL TOOLS
+# -----------------------------
+yum install -y wget unzip jq amazon-ssm-agent python3 awscli
 systemctl enable amazon-ssm-agent
 systemctl start amazon-ssm-agent
 
 # -----------------------------
-# 1. CREATE 4G SWAP
+# 2. CREATE 4G SWAP
 # -----------------------------
 SWAPFILE=/swapfile
 SWAPSIZE=4G
@@ -24,9 +23,8 @@ mkswap $SWAPFILE
 swapon $SWAPFILE
 echo "$SWAPFILE none swap sw 0 0" >> /etc/fstab
 
-
 # -----------------------------
-# ALLOW SWAP IN K3S AGENT
+# 3. ALLOW SWAP FOR K3S AGENT
 # -----------------------------
 mkdir -p /etc/systemd/system/k3s-agent.service.d
 cat <<EOF > /etc/systemd/system/k3s-agent.service.d/override.conf
@@ -34,15 +32,13 @@ cat <<EOF > /etc/systemd/system/k3s-agent.service.d/override.conf
 ExecStart=
 ExecStart=/usr/local/bin/k3s agent --kubelet-arg=fail-swap-on=false
 EOF
-
 systemctl daemon-reload
-systemctl restart k3s-agent
 
-
-#fetch token from ssm
+# -----------------------------
+# 4. FETCH TOKEN AND MASTER IP
+# -----------------------------
 TOKEN=$(aws ssm get-parameter --name "/k3s/token" --with-decryption --query "Parameter.Value" --output text --region "${AWS_REGION:-us-east-1}")
 
-# Fetch master private IP
 while true; do
     MASTER_IP=$(aws ssm get-parameter --name "/k3s/master/private_ip" --query "Parameter.Value" --output text --region "${AWS_REGION:-us-east-1}")
     if [[ -n "$MASTER_IP" ]]; then
@@ -52,7 +48,27 @@ while true; do
     sleep 5
 done
 
-#install k3s agent (worker node)
+# -----------------------------
+# 5. WAIT UNTIL MASTER API IS READY
+# -----------------------------
+echo "Waiting for master API server to be ready..."
+until curl -k https://${MASTER_IP}:6443/healthz >/dev/null 2>&1; do
+    echo "Master API not ready, sleeping 10s..."
+    sleep 10
+done
+echo "✅ Master API ready"
+
+# -----------------------------
+# 6. INSTALL K3S AGENT
+# -----------------------------
 curl -sfL https://get.k3s.io | K3S_URL="https://${MASTER_IP}:6443" K3S_TOKEN="$TOKEN" sh -
 
+# -----------------------------
+# 7. VERIFY NODE JOINED
+# -----------------------------
+until kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig | grep -q 'Ready'; do
+    echo "Waiting for this worker node to appear in cluster..."
+    sleep 10
+done
 
+kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig

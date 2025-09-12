@@ -16,23 +16,6 @@ if ! swapon --show | grep -q "$SWAPFILE"; then
     swapon $SWAPFILE
     echo "$SWAPFILE none swap sw 0 0" >> /etc/fstab
 fi
-# -----------------------------
-# 4. INSTALL K3S MASTER
-# -----------------------------
-curl -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644
-
-sleep 20
-# -----------------------------
-# 1b. ALLOW SWAP IN K3S
-# -----------------------------
-mkdir -p /etc/systemd/system/k3s.service.d
-cat <<EOF > /etc/systemd/system/k3s.service.d/override.conf
-[Service]
-ExecStart=
-ExecStart=/usr/local/bin/k3s server --kubelet-arg=fail-swap-on=false --write-kubeconfig-mode 644
-EOF
-systemctl daemon-reload
-systemctl restart k3s
 
 # -----------------------------
 # 2. UPDATE SYSTEM
@@ -42,16 +25,26 @@ yum update -y
 # -----------------------------
 # 3. INSTALL TOOLS
 # -----------------------------
-yum install -y wget unzip jq amazon-ssm-agent
-yum install -y python3 awscli
-
-# enable and start SSM agent
+yum install -y wget unzip jq amazon-ssm-agent python3 awscli
 systemctl enable amazon-ssm-agent
 systemctl start amazon-ssm-agent
 
+# -----------------------------
+# 4. INSTALL K3S MASTER
+# -----------------------------
+curl -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644 --kubelet-arg=fail-swap-on=false
 
+# Wait until k3s API server is ready
+echo "Waiting for k3s API server to be ready..."
+until kubectl get nodes --kubeconfig /etc/rancher/k3s/k3s.yaml >/dev/null 2>&1; do
+    echo "API server not ready, sleeping 10s..."
+    sleep 10
+done
+echo "✅ API server ready"
 
-# Save k3s token for worker nodes
+# -----------------------------
+# 5. SAVE K3S TOKEN & KUBECONFIG
+# -----------------------------
 mkdir -p /var/lib/rancher/k3s/server
 while [ ! -f /var/lib/rancher/k3s/server/node-token ]; do
     echo "Waiting for k3s node-token..."
@@ -59,11 +52,10 @@ while [ ! -f /var/lib/rancher/k3s/server/node-token ]; do
 done
 cp /var/lib/rancher/k3s/server/node-token /tmp/k3s_token
 
-# Store kubeconfig in a secure location
 cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/kubeconfig
 chown ec2-user:ec2-user /home/ec2-user/kubeconfig
 
-# Push kubeconfig to SSM parameter store
+# Push kubeconfig to SSM
 aws ssm put-parameter \
   --name "/therabot/kubeconfig" \
   --type "SecureString" \
@@ -71,12 +63,12 @@ aws ssm put-parameter \
   --overwrite \
   --region "${AWS_REGION:-us-east-1}"
 
-# Push k3s token to SSM parameter store
+# Push k3s token to SSM
 TOKEN=$(cat /tmp/k3s_token)
-aws ssm put-parameter --name "/k3s/token" --value "$TOKEN" --type "SecureString" --region "us-east-1" --overwrite
+aws ssm put-parameter --name "/k3s/token" --value "$TOKEN" --type "SecureString" --region "${AWS_REGION:-us-east-1}"
 
 # -----------------------------
-# 5. SAVE MASTER PRIVATE IP TO SSM
+# 6. SAVE MASTER PRIVATE IP
 # -----------------------------
 while true; do
     TOKEN_IMDS=$(curl -X PUT "http://169.254.169.254/latest/api/token" \
@@ -88,7 +80,6 @@ while true; do
     if [[ -n "$MASTER_IP" ]]; then
         break
     fi
-
     echo "Waiting for instance metadata service"
     sleep 5
 done             
@@ -101,14 +92,13 @@ aws ssm put-parameter \
     --region "${AWS_REGION:-us-east-1}"
 
 # -----------------------------
-# 6. VERIFY NODE HAS JOINED THE CLUSTER
+# 7. VERIFY WORKER NODES JOIN
 # -----------------------------
-while ! kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig | grep -q 'Ready'; do
-    echo "Waiting for worker nodes to join the cluster..."
+echo "Waiting for worker nodes to join..."
+until kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig | grep -q 'Ready'; do
+    echo "No Ready nodes yet, sleeping 10s..."
     sleep 10
-done   
+done
 
-# -----------------------------
-# 7. CHECK PODS
-# -----------------------------
+kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig
 kubectl get pods -A --kubeconfig /home/ec2-user/kubeconfig
