@@ -53,17 +53,24 @@ jobs:
               -var-file="terraform.tfvars" \
               -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}"    
 
-      
-
-      # Terraform Apply
+      # Terraform Apply (no DEBUG spam, logs written to file if needed)
       - name: Terraform Apply
         id: terraform_apply
         run: |
           set -e
-          TF_LOG=DEBUG terraform apply -auto-approve \
+          TF_LOG= terraform apply -auto-approve \
             -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
             -var-file="terraform.tfvars" \
-            -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
+            -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}" \
+            2>&1 | tee terraform-apply.log
+
+      # Save Terraform debug logs as artifact (optional, for troubleshooting)
+      - name: Upload Terraform Logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-logs
+          path: terraform-apply.log
 
       # Get ALB DNS
       - name: GET ALB DNS
@@ -145,17 +152,14 @@ jobs:
         run: |
           echo "Workflow failed or cancelled. Cleaning up resources..."
           
-          # Terraform destroy
           terraform destroy -auto-approve \
             -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
             -var-file="terraform.tfvars" \
             -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
 
-          # Kubernetes cleanup
           export KUBECONFIG=./kubeconfig
           if kubectl get namespace development >/dev/null 2>&1; then
             kubectl delete namespace development --grace-period=0 --force
-            echo "Kubernetes namespace 'development' deleted."
           fi
 
       # Always remove kubeconfig file
