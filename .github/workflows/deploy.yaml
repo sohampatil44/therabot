@@ -42,18 +42,19 @@ jobs:
             -backend-config="key=therabot/terraform.tfstate" \
             -backend-config="region=us-east-1" \
             -backend-config="dynamodb_table=therabot-terraform-lock" \
-            -backend-config="encrypt=true"    
+            -backend-config="encrypt=true"
 
+      # Terraform Plan
       - name: Terraform Plan
         id: terraform_plan
         run: |
           set -e
           terraform plan -out=tfplan \
-              -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
-              -var-file="terraform.tfvars" \
-              -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}"    
+            -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
+            -var-file="terraform.tfvars" \
+            -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
 
-      # Terraform Apply (no DEBUG spam, logs written to file if needed)
+      # Terraform Apply
       - name: Terraform Apply
         id: terraform_apply
         run: |
@@ -64,7 +65,7 @@ jobs:
             -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}" \
             2>&1 | tee terraform-apply.log
 
-      # Save Terraform debug logs as artifact (optional, for troubleshooting)
+      # Upload Terraform logs
       - name: Upload Terraform Logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -72,13 +73,17 @@ jobs:
           name: terraform-logs
           path: terraform-apply.log
 
-      # Get ALB DNS
+      # Get ALB DNS safely
       - name: GET ALB DNS
         run: |
-          alb_dns=$(terraform output -raw alb_dns_name | tr -d '\r\n')
+          alb_dns=$(terraform output -raw alb_dns_name 2>/dev/null | tr -d '\r\n')
+          if [ -z "$alb_dns" ]; then
+            echo "::error::ALB DNS is empty"
+            exit 1
+          fi
           echo "ALB_DNS=$alb_dns" >> $GITHUB_ENV
 
-      # Get EC2 public IP   
+      # Get EC2 public IP safely
       - name: Get EC2 public IP
         id: ec2_ip
         run: |
@@ -86,7 +91,7 @@ jobs:
           ip=$(aws ec2 describe-instances \
             --filters "Name=tag:Name,Values=techeazy-instance" \
             --query "Reservations[*].Instances[*].PublicIpAddress" \
-            --output text | tr -d '\r' | tr -d '\n' | awk '{print $1}')
+            --output text | tr -d '\r\n')
           if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "EC2_PUBLIC_IP=$ip" >> $GITHUB_ENV
             echo "ec2_public_ip=$ip" >> $GITHUB_OUTPUT
@@ -94,7 +99,6 @@ jobs:
             echo "::error::Invalid IP address format: $ip"
             exit 1
           fi
-
 
       - name: Wait for EC2 SSH
         run: |
@@ -104,7 +108,7 @@ jobs:
       - name: Show App URL
         run: echo "App live on http://${{ env.ALB_DNS }}"
 
-      # Kubernetes Part
+      # Kubernetes setup
       - name: Install kubectl
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -148,7 +152,7 @@ jobs:
           kubectl get hpa -n development
           kubectl get svc -n development
 
-      # Final Cleanup (Terraform + Kubernetes)
+      # Cleanup on failure
       - name: Cleanup on failure
         if: failure() || cancelled()
         run: |
@@ -164,7 +168,7 @@ jobs:
             kubectl delete namespace development --grace-period=0 --force
           fi
 
-      # Always remove kubeconfig file
+      # Always remove kubeconfig
       - name: Remove kubeconfig
         if: always()
         run: rm -f ./kubeconfig
