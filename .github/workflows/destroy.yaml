@@ -1,66 +1,48 @@
-name: Destroy Infrastructure
+name: Therabot Destroy
 
 on:
   workflow_dispatch:
     inputs:
       stage:
         description: "Environment stage"
+        required: true
         default: "dev"
 
 jobs:
   destroy:
     runs-on: ubuntu-latest
+
     steps:
-      # Checkout repo
-      - uses: actions/checkout@v3
-      
-      # Configure AWS credentials
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
-      # Setup Terraform CLI without wrapper
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
           terraform_wrapper: false
-      
-      # Terraform Init
+
       - name: Terraform Init
         working-directory: ./
         run: |
-          echo "=== Terraform Init ==="
-          terraform --version
-          terraform init
+          terraform init \
+            -backend-config="bucket=therabot-terraform-state" \
+            -backend-config="key=therabot/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="dynamodb_table=therabot-terraform-lock" \
+            -backend-config="encrypt=true"
 
-      # Terraform Plan Destroy
-      - name: Terraform Plan Destroy
-        working-directory: ./
-        run: |
-          echo "=== Terraform Plan Destroy ==="
-          echo "Stage: ${{ github.event.inputs.stage }}"
-          echo "Using GitHub Token: ${{ secrets.REPO_ACCESS_TOKEN }}"
-          echo "Terraform command being executed:"
-          echo "terraform plan -destroy -var=\"stage=${{ github.event.inputs.stage }}\" -var-file=terraform.tfvars -var=\"github_token=${{ secrets.REPO_ACCESS_TOKEN }}\""
-          terraform plan -destroy \
-            -var="stage=${{ github.event.inputs.stage }}" \
-            -var-file="terraform.tfvars" \
-            -var="github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
-
-      # Terraform Destroy
       - name: Terraform Destroy
         working-directory: ./
         run: |
-          echo "=== Terraform Destroy ==="
-          echo "Stage: ${{ github.event.inputs.stage }}"
-          echo "Using GitHub Token: ${{ secrets.REPO_ACCESS_TOKEN }}"
-          echo "Terraform command being executed:"
-          echo "terraform destroy -auto-approve -var=\"stage=${{ github.event.inputs.stage }}\" -var-file=terraform.tfvars -var=\"github_token=${{ secrets.REPO_ACCESS_TOKEN }}\""
           terraform destroy -auto-approve \
-            -var="stage=${{ github.event.inputs.stage }}" \
+            -var "stage=${{ github.event.inputs.stage }}" \
             -var-file="terraform.tfvars" \
-            -var="github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
+            -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}"

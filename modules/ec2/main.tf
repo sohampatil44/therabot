@@ -1,3 +1,5 @@
+
+
 resource "aws_instance" "ec21" {
   ami                         = var.ami_id
   instance_type              = var.instance_type
@@ -470,3 +472,5 @@ resource "aws_sns_topic_subscription" "email_sub" {
   endpoint = "hydrogen939@gmail.com"
   
 }
+
+

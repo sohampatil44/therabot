@@ -1,3 +1,16 @@
+#remote backend
+
+terraform {
+  backend "s3" {
+    bucket = "therabot-terraform-state"
+    key = "dev/terraform.tfstate"
+    region = "us-east-1"
+    dynamodb_table = "therabot-terraform-lock"
+    encrypt = true
+    
+  }
+}
+
 locals {
   all_subnet_ids = module.subnet.subnet_id
 }
