@@ -75,13 +75,14 @@ jobs:
       # Get ALB DNS
       - name: GET ALB DNS
         run: |
-          alb_dns=$(terraform output -raw alb_dns_name)
+          alb_dns=$(terraform output -raw alb_dns_name | tr -d '\r\n')
           echo "ALB_DNS=$alb_dns" >> $GITHUB_ENV
 
       # Get EC2 public IP   
-      - name: Get EC2 public IP   
+      - name: Get EC2 public IP
         id: ec2_ip
         run: |
+          set -e
           ip=$(aws ec2 describe-instances \
             --filters "Name=tag:Name,Values=techeazy-instance" \
             --query "Reservations[*].Instances[*].PublicIpAddress" \
@@ -93,6 +94,7 @@ jobs:
             echo "::error::Invalid IP address format: $ip"
             exit 1
           fi
+
 
       - name: Wait for EC2 SSH
         run: |
