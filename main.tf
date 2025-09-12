@@ -70,6 +70,7 @@ module "alb_asg_lb" {
     alb_sg_id = module.security_group.security_group_id
     vpc_id = module.vpc.vpc_id
     public_subnets = local.all_subnet_ids
+    
 
 
     
