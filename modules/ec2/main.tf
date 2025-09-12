@@ -361,7 +361,7 @@ resource "aws_iam_instance_profile" "Worker_profile" {
 
 resource "aws_autoscaling_group" "therabot_asg" {
   desired_capacity = 1
-  max_size = 3
+  max_size = 3 
   min_size = 1
   vpc_zone_identifier = [var.subnet_id]
   health_check_type = "ELB"
