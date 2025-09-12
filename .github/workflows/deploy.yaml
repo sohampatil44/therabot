@@ -58,7 +58,7 @@ jobs:
         id: terraform_apply
         run: |
           set -e
-          TF_LOG= terraform apply -auto-approve \
+          terraform apply -auto-approve \
             -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
             -var-file="terraform.tfvars" \
             -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}" \
