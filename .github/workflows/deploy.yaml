@@ -121,20 +121,14 @@ jobs:
             exit 1
           fi
 
-      - name: Wait for EC2 SSH
-        run: |
-          echo "Waiting for EC2 to be ready..."
-          sleep 60
-
       - name: Show App URL
         run: echo "App live on http://${{ env.ALB_DNS }}"
 
-      # Kubernetes setup
+      # Kubernetes setup - FIXED kubectl installation
       - name: Install kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
 
       - name: Setup SSH to Master Node
         run: |
@@ -144,56 +138,150 @@ jobs:
           
       - name: Fetch kubeconfig from SSM
         run: |
+          echo "Fetching kubeconfig from SSM..."
           aws ssm get-parameter \
             --name "/therabot/kubeconfig" \
             --with-decryption \
             --query "Parameter.Value" \
             --output text > kubeconfig
           chmod 600 kubeconfig
+          
+          # Validate kubeconfig file
+          if [ ! -s kubeconfig ]; then
+            echo "::error::kubeconfig file is empty or not found"
+            exit 1
+          fi
+
+      - name: Wait for k3s cluster to be ready
+        run: |
+          echo "Waiting for k3s cluster to be ready..."
+          export KUBECONFIG=./kubeconfig
+          
+          # Wait up to 5 minutes for cluster to be accessible
+          timeout=300
+          elapsed=0
+          interval=15
+          
+          while [ $elapsed -lt $timeout ]; do
+            echo "Checking cluster connectivity... ($elapsed/${timeout}s)"
+            
+            if kubectl cluster-info >/dev/null 2>&1; then
+              echo "✅ k3s cluster is accessible!"
+              kubectl version --short
+              kubectl get nodes
+              break
+            fi
+            
+            echo "⏳ Cluster not ready yet, waiting ${interval}s..."
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+          
+          if [ $elapsed -ge $timeout ]; then
+            echo "::error::❌ Timeout waiting for k3s cluster to become accessible"
+            echo "Debug: kubeconfig content (redacted):"
+            grep -E "server:|name:" kubeconfig || true
+            exit 1
+          fi
 
       - name: Create namespace if not exists
         run: |
           export KUBECONFIG=./kubeconfig
+          echo "Creating development namespace if it doesn't exist..."
+          
           if ! kubectl get namespace development >/dev/null 2>&1; then
             kubectl create namespace development
+            echo "✅ Created development namespace"
+          else
+            echo "✅ Development namespace already exists"
           fi
+
+      - name: Validate k8s manifests
+        run: |
+          export KUBECONFIG=./kubeconfig
+          echo "Validating Kubernetes manifests..."
+          
+          # Check if k8s directory exists and has files
+          if [ ! -d "k8s" ] || [ -z "$(ls -A k8s 2>/dev/null)" ]; then
+            echo "::error::k8s directory is empty or doesn't exist"
+            exit 1
+          fi
+          
+          echo "Found manifest files:"
+          ls -la k8s/
+          
+          # Dry-run to validate manifests
+          kubectl apply -f k8s/ --dry-run=client --namespace=development
 
       - name: Deploy manifests to k3s cluster
         run: |
           export KUBECONFIG=./kubeconfig
-          kubectl apply -f k8s/
+          echo "Deploying manifests to k3s cluster..."
           
-          for deploy in $(kubectl get deployments -n development -o name); do
-            kubectl rollout status $deploy -n development 
+          # Apply manifests
+          kubectl apply -f k8s/ --namespace=development
+          
+          echo "Waiting for deployments to be ready..."
+          
+          # Wait for deployments with timeout
+          for deploy in $(kubectl get deployments -n development -o name 2>/dev/null || true); do
+            if [ -n "$deploy" ]; then
+              echo "Waiting for $deploy to be ready..."
+              kubectl rollout status $deploy -n development --timeout=300s
+            fi
           done
+          
+          echo "✅ All deployments are ready!"
 
       - name: Show Kubernetes App URL
-        run: echo "Kubernetes app is live on http://${{ steps.ec2_ip.outputs.ec2_public_ip }}:30080"
+        run: |
+          echo "🚀 Kubernetes app is live on http://${{ steps.ec2_ip.outputs.ec2_public_ip }}:30080"
 
       - name: Verify Deployment
         run: |
           export KUBECONFIG=./kubeconfig
+          echo "=== Deployment Verification ==="
+          
+          echo "📋 All resources in development namespace:"
           kubectl get all -n development
-          kubectl get hpa -n development
+          
+          echo ""
+          echo "📈 Horizontal Pod Autoscalers:"
+          kubectl get hpa -n development 2>/dev/null || echo "No HPA found"
+          
+          echo ""
+          echo "🔗 Services:"
           kubectl get svc -n development
+          
+          echo ""
+          echo "📊 Pod status:"
+          kubectl get pods -n development -o wide
 
       # Cleanup on failure
       - name: Cleanup on failure
         if: failure() || cancelled()
         run: |
-          echo "Workflow failed or cancelled. Cleaning up resources..."
+          echo "🧹 Workflow failed or cancelled. Cleaning up resources..."
           
+          # Cleanup k3s resources
+          if [ -f kubeconfig ]; then
+            export KUBECONFIG=./kubeconfig
+            if kubectl get namespace development >/dev/null 2>&1; then
+              echo "Deleting development namespace..."
+              kubectl delete namespace development --grace-period=30 --timeout=120s || true
+            fi
+          fi
+          
+          # Cleanup Terraform resources
+          echo "Destroying Terraform infrastructure..."
           terraform destroy -auto-approve \
             -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
             -var-file="terraform.tfvars" \
-            -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
-
-          export KUBECONFIG=./kubeconfig
-          if kubectl get namespace development >/dev/null 2>&1; then
-            kubectl delete namespace development --grace-period=0 --force
-          fi
+            -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}" || true
 
       # Always remove kubeconfig
       - name: Remove kubeconfig
         if: always()
-        run: rm -f ./kubeconfig
+        run: |
+          echo "🔒 Cleaning up kubeconfig..."
+          rm -f ./kubeconfig
