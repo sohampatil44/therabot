@@ -43,7 +43,28 @@ done
 echo "✅ API server ready"
 
 # -----------------------------
-# 5. SAVE K3S TOKEN & KUBECONFIG
+# 5. GET MASTER IP (DO THIS EARLY)
+# -----------------------------
+# Get the master private IP with retry logic
+echo "Getting master private IP..."
+MASTER_IP=""
+for i in {1..10}; do
+    MASTER_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4 2>/dev/null || echo "")
+    if [[ -n "$MASTER_IP" && "$MASTER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "✅ Master IP: $MASTER_IP"
+        break
+    fi
+    echo "Attempt $i: Waiting for valid master IP..."
+    sleep 5
+done
+
+if [[ -z "$MASTER_IP" ]]; then
+    echo "❌ Failed to get master private IP"
+    exit 1
+fi
+
+# -----------------------------
+# 6. SAVE K3S TOKEN & KUBECONFIG
 # -----------------------------
 mkdir -p /var/lib/rancher/k3s/server
 while [ ! -f /var/lib/rancher/k3s/server/node-token ]; do
@@ -52,10 +73,29 @@ while [ ! -f /var/lib/rancher/k3s/server/node-token ]; do
 done
 cp /var/lib/rancher/k3s/server/node-token /tmp/k3s_token
 
+# Copy and fix kubeconfig
 cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/kubeconfig
 chown ec2-user:ec2-user /home/ec2-user/kubeconfig
 
+# Replace localhost in kubeconfig with the master IP (more precise replacement)
+sed -i "s|https://127.0.0.1:6443|https://$MASTER_IP:6443|g" /home/ec2-user/kubeconfig
+
+# Verify the kubeconfig was updated correctly
+echo "Verifying kubeconfig server endpoint:"
+grep "server:" /home/ec2-user/kubeconfig
+
+# Test the updated kubeconfig works
+echo "Testing updated kubeconfig..."
+if kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig >/dev/null 2>&1; then
+    echo "✅ Updated kubeconfig works correctly"
+else
+    echo "❌ Updated kubeconfig failed - falling back to original"
+    cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/kubeconfig
+    chown ec2-user:ec2-user /home/ec2-user/kubeconfig
+fi
+
 # Push kubeconfig to SSM
+echo "Pushing kubeconfig to SSM..."
 aws ssm put-parameter \
   --name "/therabot/kubeconfig" \
   --type "SecureString" \
@@ -63,27 +103,31 @@ aws ssm put-parameter \
   --overwrite \
   --region "${AWS_REGION:-us-east-1}"
 
+if [ $? -eq 0 ]; then
+    echo "✅ Kubeconfig successfully saved to SSM"
+else
+    echo "❌ Failed to save kubeconfig to SSM"
+fi
+
 # Push k3s token to SSM
+echo "Pushing k3s token to SSM..."
 TOKEN=$(cat /tmp/k3s_token)
-aws ssm put-parameter --name "/k3s/token" --value "$TOKEN" --type "SecureString" --region "${AWS_REGION:-us-east-1}"
+aws ssm put-parameter \
+  --name "/k3s/token" \
+  --value "$TOKEN" \
+  --type "SecureString" \
+  --region "${AWS_REGION:-us-east-1}"
+
+if [ $? -eq 0 ]; then
+    echo "✅ K3s token successfully saved to SSM"
+else
+    echo "❌ Failed to save k3s token to SSM"
+fi
 
 # -----------------------------
-# 6. SAVE MASTER PRIVATE IP
+# 7. SAVE MASTER PRIVATE IP TO SSM
 # -----------------------------
-while true; do
-    TOKEN_IMDS=$(curl -X PUT "http://169.254.169.254/latest/api/token" \
-        -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-    
-    MASTER_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN_IMDS" \
-        -s http://169.254.169.254/latest/meta-data/local-ipv4)
-
-    if [[ -n "$MASTER_IP" ]]; then
-        break
-    fi
-    echo "Waiting for instance metadata service"
-    sleep 5
-done             
-
+echo "Pushing master IP to SSM..."
 aws ssm put-parameter \
     --name "/k3s/master/private_ip" \
     --value "$MASTER_IP" \
@@ -91,14 +135,47 @@ aws ssm put-parameter \
     --overwrite \
     --region "${AWS_REGION:-us-east-1}"
 
-# -----------------------------
-# 7. VERIFY WORKER NODES JOIN
-# -----------------------------
-echo "Waiting for worker nodes to join..."
-until kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig | grep -q 'Ready'; do
-    echo "No Ready nodes yet, sleeping 10s..."
-    sleep 10
-done
+if [ $? -eq 0 ]; then
+    echo "✅ Master IP successfully saved to SSM"
+else
+    echo "❌ Failed to save master IP to SSM"
+fi
 
+# -----------------------------
+# 8. VERIFY CLUSTER IS HEALTHY
+# -----------------------------
+echo "Verifying cluster health..."
+kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig
+kubectl get pods -A --kubeconfig /home/ec2-user/kubeconfig
+
+# -----------------------------
+# 9. WAIT FOR WORKER NODES (OPTIONAL)
+# -----------------------------
+echo "Master node setup complete. Workers will join automatically."
+echo "Current cluster status:"
+kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig
+
+# Optional: Wait for at least one worker node (remove if not needed)
+# echo "Waiting for worker nodes to join..."
+# timeout=600  # 10 minutes timeout for workers
+# elapsed=0
+# interval=30
+# 
+# while [ $elapsed -lt $timeout ]; do
+#     worker_count=$(kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig --no-headers | grep -v master | wc -l)
+#     if [ "$worker_count" -gt 0 ]; then
+#         echo "✅ Worker nodes have joined the cluster!"
+#         break
+#     fi
+#     echo "⏳ No worker nodes yet, waiting... ($elapsed/${timeout}s)"
+#     sleep $interval
+#     elapsed=$((elapsed + interval))
+# done
+# 
+# if [ $elapsed -ge $timeout ]; then
+#     echo "⚠️ Timeout waiting for worker nodes, but master is ready"
+# fi
+
+echo "🎉 Master node initialization completed successfully!"
 kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig
 kubectl get pods -A --kubeconfig /home/ec2-user/kubeconfig

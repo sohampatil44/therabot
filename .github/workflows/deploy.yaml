@@ -135,6 +135,69 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_KEYPAIR_PRIVATE_KEY }}" > ~/.ssh/network-keypair.pem
           chmod 600 ~/.ssh/network-keypair.pem
+
+      # FIXED: Wait for k3s cluster to be fully initialized before fetching kubeconfig
+      - name: Wait for k3s cluster initialization
+        run: |
+          echo "Waiting for k3s master node to complete initialization..."
+          timeout=900  # 15 minutes timeout
+          elapsed=0
+          interval=30
+          
+          while [ $elapsed -lt $timeout ]; do
+            echo "Checking if k3s cluster is initialized... ($elapsed/${timeout}s)"
+            
+            # Check if kubeconfig exists in SSM and has the correct server IP
+            kubeconfig_content=$(aws ssm get-parameter \
+              --name "/therabot/kubeconfig" \
+              --with-decryption \
+              --query "Parameter.Value" \
+              --output text 2>/dev/null || echo "")
+            
+            if [ -n "$kubeconfig_content" ]; then
+              # Check if kubeconfig has been updated with actual IP (not localhost)
+              if echo "$kubeconfig_content" | grep -q "server: https://127.0.0.1:6443"; then
+                echo "⏳ Kubeconfig still has localhost IP, waiting for master to update it..."
+              else
+                echo "✅ Kubeconfig has been updated with proper IP!"
+                
+                # Also verify the master IP is reachable
+                master_ip=$(echo "$kubeconfig_content" | grep "server:" | sed 's/.*https:\/\/\([^:]*\):.*/\1/')
+                if curl -k --connect-timeout 10 https://${master_ip}:6443/healthz >/dev/null 2>&1; then
+                  echo "✅ k3s API server is responding at ${master_ip}!"
+                  break
+                else
+                  echo "⏳ k3s API server at ${master_ip} not ready yet..."
+                fi
+              fi
+            else
+              echo "⏳ Kubeconfig not found in SSM yet, waiting..."
+            fi
+            
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+          
+          if [ $elapsed -ge $timeout ]; then
+            echo "::error::❌ Timeout waiting for k3s cluster to initialize"
+            
+            # Debug information
+            echo "Debug: Checking master node status:"
+            aws ec2 describe-instances \
+              --filters "Name=tag:Name,Values=k3s-master" "Name=instance-state-name,Values=running" \
+              --query "Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress,PrivateIpAddress]" \
+              --output table
+            
+            # Try to get current kubeconfig content for debugging
+            echo "Debug: Current kubeconfig in SSM:"
+            aws ssm get-parameter \
+              --name "/therabot/kubeconfig" \
+              --with-decryption \
+              --query "Parameter.Value" \
+              --output text 2>/dev/null | head -10 || echo "No kubeconfig found"
+            
+            exit 1
+          fi
           
       - name: Fetch kubeconfig from SSM
         run: |
@@ -151,34 +214,23 @@ jobs:
             echo "::error::kubeconfig file is empty or not found"
             exit 1
           fi
+          
+          # Show kubeconfig server (for debugging, but redacted)
+          echo "Kubeconfig server endpoint:"
+          grep "server:" kubeconfig
 
-      - name: Wait for k3s cluster to be ready
+      - name: Verify k3s cluster connectivity
         run: |
-          echo "Waiting for k3s cluster to be ready..."
+          echo "Verifying k3s cluster connectivity..."
           export KUBECONFIG=./kubeconfig
           
-          # Wait up to 5 minutes for cluster to be accessible
-          timeout=600
-          elapsed=0
-          interval=15
-          
-          while [ $elapsed -lt $timeout ]; do
-            echo "Checking cluster connectivity... ($elapsed/${timeout}s)"
-            
-            if kubectl cluster-info >/dev/null 2>&1; then
-              echo "✅ k3s cluster is accessible!"
-              kubectl version --short
-              kubectl get nodes
-              break
-            fi
-            
-            echo "⏳ Cluster not ready yet, waiting ${interval}s..."
-            sleep $interval
-            elapsed=$((elapsed + interval))
-          done
-          
-          if [ $elapsed -ge $timeout ]; then
-            echo "::error::❌ Timeout waiting for k3s cluster to become accessible"
+          # Test cluster connectivity
+          if kubectl cluster-info >/dev/null 2>&1; then
+            echo "✅ k3s cluster is accessible!"
+            kubectl version --short
+            kubectl get nodes
+          else
+            echo "::error::❌ Failed to connect to k3s cluster"
             echo "Debug: kubeconfig content (redacted):"
             grep -E "server:|name:" kubeconfig || true
             exit 1
