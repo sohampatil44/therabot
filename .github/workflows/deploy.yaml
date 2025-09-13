@@ -37,7 +37,7 @@ jobs:
       - name: Terraform Reconfigure Backend (Force Copy)
         if: always()
         run: |
-          terraform init -force-copy \
+          terraform init -reconfigure -force-copy \
             -backend-config="bucket=therabot-terraform-state" \
             -backend-config="key=therabot/terraform.tfstate" \
             -backend-config="region=us-east-1" \
