@@ -45,7 +45,6 @@ echo "✅ API server ready"
 # -----------------------------
 # 5. GET MASTER IP (DO THIS EARLY)
 # -----------------------------
-# Get the master private IP with retry logic
 echo "Getting master private IP..."
 MASTER_IP=""
 for i in {1..10}; do
@@ -77,7 +76,7 @@ cp /var/lib/rancher/k3s/server/node-token /tmp/k3s_token
 cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/kubeconfig
 chown ec2-user:ec2-user /home/ec2-user/kubeconfig
 
-# Replace localhost in kubeconfig with the master IP (more precise replacement)
+# Replace localhost in kubeconfig with the master IP
 sed -i "s|https://127.0.0.1:6443|https://$MASTER_IP:6443|g" /home/ec2-user/kubeconfig
 
 # Verify the kubeconfig was updated correctly
@@ -155,27 +154,7 @@ echo "Master node setup complete. Workers will join automatically."
 echo "Current cluster status:"
 kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig
 
-# Optional: Wait for at least one worker node (remove if not needed)
-# echo "Waiting for worker nodes to join..."
-# timeout=600  # 10 minutes timeout for workers
-# elapsed=0
-# interval=30
-# 
-# while [ $elapsed -lt $timeout ]; do
-#     worker_count=$(kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig --no-headers | grep -v master | wc -l)
-#     if [ "$worker_count" -gt 0 ]; then
-#         echo "✅ Worker nodes have joined the cluster!"
-#         break
-#     fi
-#     echo "⏳ No worker nodes yet, waiting... ($elapsed/${timeout}s)"
-#     sleep $interval
-#     elapsed=$((elapsed + interval))
-# done
-# 
-# if [ $elapsed -ge $timeout ]; then
-#     echo "⚠️ Timeout waiting for worker nodes, but master is ready"
-# fi
-
+# 🎉 DONE
 echo "🎉 Master node initialization completed successfully!"
 kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig
 kubectl get pods -A --kubeconfig /home/ec2-user/kubeconfig
