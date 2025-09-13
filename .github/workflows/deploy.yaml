@@ -184,7 +184,7 @@ jobs:
             # Debug information
             echo "Debug: Checking master node status:"
             aws ec2 describe-instances \
-              --filters "Name=tag:Name,Values=k3s-master" "Name=instance-state-name,Values=running" \
+              --filters "Name=tag:Name,Values=k3s-master-asg" "Name=instance-state-name,Values=running" \
               --query "Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress,PrivateIpAddress]" \
               --output table
             

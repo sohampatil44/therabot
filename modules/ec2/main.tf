@@ -237,6 +237,12 @@ resource "aws_launch_template" "lt-k3s-master" {
   instance_type = "t3.large"
   key_name = var.key_name
   user_data = base64encode(file("${path.module}/../master_user_data.sh"))
+   metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "optional"
+    http_put_response_hop_limit = 1
+    instance_metadata_tags      = "enabled"
+  }
   iam_instance_profile {
     name = aws_iam_instance_profile.master_profile.name
   }
@@ -262,6 +268,12 @@ resource "aws_launch_template" "lt-k3s-worker" {
   instance_type = "t3.large"
   key_name = var.key_name
   user_data = base64encode(file("${path.module}/../worker_user_data.sh"))
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "optional"
+    http_put_response_hop_limit = 1
+    instance_metadata_tags      = "enabled"
+  }
   iam_instance_profile {
     name = aws_iam_instance_profile.Worker_profile.name
   }
