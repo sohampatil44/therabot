@@ -33,6 +33,18 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
+    
+      - name: Terraform Reconfigure Backend
+        if: always()
+        run: |    
+
+          terraform init -reconfigure \
+            -backend-config="bucket=therabot-terraform-state" \
+            -backend-config="key=therabot/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="dynamodb_table=therabot-terraform-lock" \
+            -backend-config="encrypt=true"
+   
 
       # Terraform Init (with remote backend)
       - name: Terraform Init
