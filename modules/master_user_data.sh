@@ -29,8 +29,12 @@ yum install -y wget unzip jq amazon-ssm-agent python3 awscli
 systemctl enable amazon-ssm-agent
 systemctl start amazon-ssm-agent
 
+# Set explicit region
+export AWS_REGION=us-east-1
+export AWS_DEFAULT_REGION=us-east-1
+
 # -----------------------------
-# 4. GET MASTER IP (MOVE THIS EARLY WITH ROBUST METHOD)
+# 4. GET MASTER IP
 # -----------------------------
 echo "Getting master private IP with multiple methods..."
 MASTER_IP=""
@@ -61,7 +65,7 @@ if [[ -z "$MASTER_IP" || ! "$MASTER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; 
 fi
 
 # Method 5: Use network interface directly
-if [[ -z "$MASTER_IP" || ! "$MASTER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if [[ -z "$MASTER_IP" || ! "$MASTER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "ip route failed, checking network interfaces..."
     MASTER_IP=$(ip addr show $(ip route | awk '/default/ {print $5; exit}') 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1 | head -1 || echo "")
 fi
@@ -156,70 +160,88 @@ if [ $attempt -eq $max_attempts ]; then
     chown ec2-user:ec2-user /home/ec2-user/kubeconfig
 fi
 
-# Push kubeconfig to SSM with retry logic
-echo "Pushing kubeconfig to SSM..."
+# -----------------------------
+# 7. SAVE TO SSM - FIXED VERSION
+# -----------------------------
+echo "🔍 Testing SSM access..."
+aws sts get-caller-identity || echo "No AWS identity"
+
+# Test basic SSM access
+if aws ssm describe-parameters --max-items 1 >/dev/null 2>&1; then
+    echo "✅ SSM access confirmed"
+else
+    echo "❌ SSM access failed"
+    exit 1
+fi
+
+echo "💾 Saving kubeconfig to SSM as String (not SecureString)..."
 retry_ssm=0
-max_ssm_retries=5
+max_ssm_retries=3
 while [ $retry_ssm -lt $max_ssm_retries ]; do
+    # CHANGED: Using String instead of SecureString to avoid KMS issues
     if aws ssm put-parameter \
       --name "/therabot/kubeconfig" \
-      --type "SecureString" \
+      --type "String" \
       --value "$(cat /home/ec2-user/kubeconfig)" \
       --overwrite \
-      --region "${AWS_REGION:-us-east-1}"; then
-        echo "✅ Kubeconfig successfully saved to SSM"
+      --region us-east-1; then
+        echo "✅ Kubeconfig saved to SSM as String"
+        
+        # Verify it was saved
+        sleep 2
+        if aws ssm get-parameter --name "/therabot/kubeconfig" --region us-east-1 >/dev/null 2>&1; then
+            echo "✅ Kubeconfig verified in SSM"
+        else
+            echo "⚠️  Saved but can't retrieve"
+        fi
         break
     else
         retry_ssm=$((retry_ssm + 1))
-        echo "❌ SSM push failed, attempt $retry_ssm/$max_ssm_retries. Retrying in 15s..."
-        sleep 15
+        echo "❌ SSM save failed, attempt $retry_ssm/$max_ssm_retries. Retrying in 10s..."
+        sleep 10
     fi
 done
 
 if [ $retry_ssm -eq $max_ssm_retries ]; then
     echo "❌ Failed to save kubeconfig to SSM after $max_ssm_retries attempts"
+    
+    # Debug: Show what we're trying to save
+    echo "🔍 Kubeconfig size: $(wc -c < /home/ec2-user/kubeconfig) bytes"
+    echo "🔍 Kubeconfig preview:"
+    head -10 /home/ec2-user/kubeconfig
+    
+    # Try saving a simple test parameter
+    echo "🧪 Testing simple parameter save..."
+    if aws ssm put-parameter --name "/test/debug" --value "test123" --type "String" --overwrite --region us-east-1; then
+        echo "✅ Simple parameter works - issue is with kubeconfig content"
+    else
+        echo "❌ Even simple parameter fails - IAM/SSM permissions issue"
+    fi
+    exit 1
 fi
 
-# Push k3s token to SSM with retry logic
-echo "Pushing k3s token to SSM..."
+# Save k3s token (also as String)
+echo "💾 Saving k3s token to SSM..."
 TOKEN=$(cat /tmp/k3s_token)
-retry_token=0
-while [ $retry_token -lt $max_ssm_retries ]; do
-    if aws ssm put-parameter \
-      --name "/k3s/token" \
-      --value "$TOKEN" \
-      --type "SecureString" \
-      --overwrite \
-      --region "${AWS_REGION:-us-east-1}"; then
-        echo "✅ K3s token successfully saved to SSM"
-        break
-    else
-        retry_token=$((retry_token + 1))
-        echo "❌ Token SSM push failed, attempt $retry_token/$max_ssm_retries. Retrying in 15s..."
-        sleep 15
-    fi
-done
+aws ssm put-parameter \
+  --name "/k3s/token" \
+  --value "$TOKEN" \
+  --type "String" \
+  --overwrite \
+  --region us-east-1 && echo "✅ Token saved" || echo "⚠️  Token save failed"
 
-# -----------------------------
-# 7. SAVE MASTER PRIVATE IP TO SSM
-# -----------------------------
-echo "Pushing master IP to SSM..."
-retry_ip=0
-while [ $retry_ip -lt $max_ssm_retries ]; do
-    if aws ssm put-parameter \
-        --name "/k3s/master/private_ip" \
-        --value "$MASTER_IP" \
-        --type "String" \
-        --overwrite \
-        --region "${AWS_REGION:-us-east-1}"; then
-        echo "✅ Master IP successfully saved to SSM"
-        break
-    else
-        retry_ip=$((retry_ip + 1))
-        echo "❌ Master IP SSM push failed, attempt $retry_ip/$max_ssm_retries. Retrying in 15s..."
-        sleep 15
-    fi
-done
+# Save master IP
+echo "💾 Saving master IP to SSM..."
+aws ssm put-parameter \
+    --name "/k3s/master/private_ip" \
+    --value "$MASTER_IP" \
+    --type "String" \
+    --overwrite \
+    --region us-east-1 && echo "✅ Master IP saved" || echo "⚠️  Master IP save failed"
+
+# Final verification
+echo "📋 Final SSM verification:"
+aws ssm get-parameters --names "/therabot/kubeconfig" "/k3s/token" "/k3s/master/private_ip" --region us-east-1 --query "Parameters[*].[Name,LastModifiedDate]" --output table || echo "Failed to verify parameters"
 
 # -----------------------------
 # 8. VERIFY CLUSTER IS HEALTHY
@@ -229,7 +251,7 @@ kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig
 kubectl get pods -A --kubeconfig /home/ec2-user/kubeconfig
 
 # -----------------------------
-# 9. WAIT FOR WORKER NODES (OPTIONAL)
+# 9. FINAL STATUS
 # -----------------------------
 echo "Master node setup complete. Workers will join automatically."
 echo "Current cluster status:"

@@ -28,11 +28,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}  
 
+      # Install Terraform
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
     
+      # Terraform Reconfigure Backend (only first run)
       - name: Terraform Reconfigure Backend (Force Copy)
         if: always()
         run: |
@@ -43,6 +45,7 @@ jobs:
             -backend-config="dynamodb_table=therabot-terraform-lock" \
             -backend-config="encrypt=true"
         
+      # Terraform Init
       - name: Terraform Init
         run: |
           terraform init \
@@ -52,6 +55,7 @@ jobs:
             -backend-config="dynamodb_table=therabot-terraform-lock" \
             -backend-config="encrypt=true"
 
+      # Terraform Plan
       - name: Terraform Plan
         id: terraform_plan
         run: |
@@ -60,11 +64,13 @@ jobs:
             -var-file="terraform.tfvars" \
             -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}"
 
+      # Terraform Apply
       - name: Terraform Apply
         id: terraform_apply
         run: |
           terraform apply -lock=false tfplan 2>&1 | tee terraform-apply.log
 
+      # Upload Terraform logs
       - name: Upload Terraform Logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -72,11 +78,17 @@ jobs:
           name: terraform-logs
           path: terraform-apply.log
 
-      - name: Get ALB DNS
+      # Get ALB DNS
+      - name: GET ALB DNS
         run: |
           alb_dns=$(terraform output -raw alb_dns_name 2>/dev/null | tr -d '\r\n')
+          if [ -z "$alb_dns" ]; then
+            echo "::error::ALB DNS is empty"
+            exit 1
+          fi
           echo "ALB_DNS=$alb_dns" >> $GITHUB_ENV
 
+      # Get EC2 public IP
       - name: Get EC2 public IP
         id: ec2_ip
         run: |
@@ -84,76 +96,179 @@ jobs:
             --filters "Name=tag:Name,Values=therabot-asg" "Name=instance-state-name,Values=running" \
             --query "Reservations[*].Instances[*].PublicIpAddress" \
             --output text | tr -d '\r\n' | awk 'NF && $1!="None" {print $1; exit}')
-          echo "EC2_PUBLIC_IP=$ip" >> $GITHUB_ENV
-          echo "ec2_public_ip=$ip" >> $GITHUB_OUTPUT
+          
+          if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "EC2_PUBLIC_IP=$ip" >> $GITHUB_ENV
+            echo "ec2_public_ip=$ip" >> $GITHUB_OUTPUT
+            echo "Successfully found therabot-asg instance IP: $ip"
+          else
+            echo "::error::Could not find valid therabot-asg instance IP address: '$ip'"
+            exit 1
+          fi
 
+      - name: Show App URL
+        run: echo "App live on http://${{ env.ALB_DNS }}"
+
+      # Install kubectl
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
-      - name: Setup SSH key (optional, for other commands)
+      # Setup SSH key for master node
+      - name: Setup SSH to Master Node
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_KEYPAIR_PRIVATE_KEY }}" > ~/.ssh/network-keypair.pem
           chmod 600 ~/.ssh/network-keypair.pem
 
-      # -----------------------------
-      # ✅ NEW: SSM Hybrid method for kubeconfig
-      # -----------------------------
-      - name: Fetch kubeconfig via SSM (hybrid, works private/public)
+      # SIMPLIFIED AND FIXED VERSION
+      - name: Wait for k3s cluster initialization
         run: |
-          RETRY=0
-          MAX_RETRIES=10
-          until [ $RETRY -ge $MAX_RETRIES ]
-          do
+          echo "🔄 Waiting for k3s cluster (max 5 minutes)..."
+          
+          # First, debug our permissions
+          echo "🔍 Testing AWS/SSM permissions:"
+          aws sts get-caller-identity || echo "No AWS identity"
+          aws ssm describe-parameters --max-items 1 >/dev/null 2>&1 && echo "✅ SSM accessible" || echo "❌ SSM not accessible"
+          
+          # Show what parameters exist
+          echo "📋 Existing SSM parameters:"
+          aws ssm describe-parameters --filters "Key=Name,Values=/therabot/,/k3s/" --query "Parameters[*].[Name,LastModifiedDate]" --output table || echo "No parameters found"
+          
+          timeout=300  # 5 minutes only
+          elapsed=0
+          interval=15  # Check every 15 seconds
+          
+          while [ $elapsed -lt $timeout ]; do
+            echo "⏳ Checking... (${elapsed}s/${timeout}s)"
+            
+            # Try to get the parameter (no --with-decryption since we're using String now)
             kubeconfig_content=$(aws ssm get-parameter \
               --name "/therabot/kubeconfig" \
-              --with-decryption \
               --query "Parameter.Value" \
-              --output text 2>/dev/null || echo "")
-            if [ -n "$kubeconfig_content" ]; then
+              --output text \
+              --region us-east-1 2>/dev/null || echo "")
+            
+            if [ -n "$kubeconfig_content" ] && [ "$kubeconfig_content" != "None" ]; then
+              echo "📄 Kubeconfig found in SSM (${#kubeconfig_content} chars)"
+              
+              # Save and test it
               echo "$kubeconfig_content" > kubeconfig
               chmod 600 kubeconfig
               export KUBECONFIG=./kubeconfig
               
-              if kubectl get nodes >/dev/null 2>&1; then
-                echo "✅ k3s cluster ready!"
+              if kubectl get nodes --request-timeout=20s >/dev/null 2>&1; then
+                echo "✅ k3s cluster is ready!"
                 kubectl get nodes
                 break
+              else
+                echo "⚠️  Got kubeconfig but cluster not responding yet..."
+                echo "🔍 Server endpoint:"
+                grep "server:" kubeconfig || echo "No server found"
+              fi
+            else
+              echo "⏳ Kubeconfig not found in SSM yet..."
+              
+              # Show debug info every minute
+              if [ $((elapsed % 60)) -eq 0 ] && [ $elapsed -gt 0 ]; then
+                echo "🔍 Debug info:"
+                echo "EC2 instances:"
+                aws ec2 describe-instances \
+                  --filters "Name=tag:Name,Values=therabot-asg" "Name=instance-state-name,Values=running" \
+                  --query "Reservations[*].Instances[*].[InstanceId,State.Name,LaunchTime]" \
+                  --output table || echo "Failed to get instances"
               fi
             fi
-            RETRY=$((RETRY+1))
-            echo "⏳ Retry $RETRY/$MAX_RETRIES: kubeconfig not ready yet..."
-            sleep 15
+            
+            sleep $interval
+            elapsed=$((elapsed + interval))
           done
           
-          if [ $RETRY -ge $MAX_RETRIES ]; then
-            echo "::error::Failed to fetch valid kubeconfig from SSM"
+          if [ $elapsed -ge $timeout ]; then
+            echo "❌ TIMEOUT after ${timeout}s"
+            
+            # Final debug info
+            echo "🔍 Final debug:"
+            echo "All SSM parameters:"
+            aws ssm describe-parameters --query "Parameters[*].[Name,LastModifiedDate]" --output table || echo "Failed to list parameters"
+            
+            echo "EC2 instance details:"
+            aws ec2 describe-instances \
+              --filters "Name=tag:Name,Values=therabot-asg" \
+              --query "Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress,LaunchTime]" \
+              --output table || echo "Failed to get instance details"
+            
             exit 1
           fi
 
+      # Verify k3s cluster (redundant check but good to have)
+      - name: Verify k3s cluster connectivity
+        run: |
+          export KUBECONFIG=./kubeconfig
+          echo "🔍 Final cluster verification:"
+          kubectl cluster-info --request-timeout=30s
+          kubectl get nodes -o wide
+
+      # Create namespace if missing
       - name: Create namespace if not exists
         run: |
           export KUBECONFIG=./kubeconfig
-          kubectl create namespace development --dry-run=client -o yaml | kubectl apply -f -
+          if ! kubectl get namespace development >/dev/null 2>&1; then
+            kubectl create namespace development
+            echo "📁 Created development namespace"
+          else
+            echo "📁 Development namespace already exists"
+          fi
 
-      - name: Validate and Deploy Kubernetes manifests
+      # Validate k8s manifests
+      - name: Validate Kubernetes manifests
+        run: |
+          export KUBECONFIG=./kubeconfig
+          if [ ! -d "k8s" ] || [ -z "$(ls -A k8s 2>/dev/null)" ]; then
+            echo "::error::k8s directory empty"
+            exit 1
+          fi
+          kubectl apply -f k8s/ --dry-run=client --namespace=development
+
+      # Deploy manifests
+      - name: Deploy manifests to k3s cluster
         run: |
           export KUBECONFIG=./kubeconfig
           kubectl apply -f k8s/ --namespace=development
-          for deploy in $(kubectl get deployments -n development -o name); do
-            kubectl rollout status $deploy -n development --timeout=300s
+          
+          # Wait for deployments
+          for deploy in $(kubectl get deployments -n development -o name 2>/dev/null || echo ""); do
+            if [ -n "$deploy" ]; then
+              echo "⏳ Waiting for $deploy..."
+              kubectl rollout status $deploy -n development --timeout=300s
+            fi
           done
 
-      - name: Show App URL
+      - name: Show Kubernetes App URL
         run: echo "🚀 App live on http://${{ steps.ec2_ip.outputs.ec2_public_ip }}:30080"
 
+      # Deployment verification
       - name: Verify Deployment
         run: |
           export KUBECONFIG=./kubeconfig
           kubectl get all -n development
 
+      # Cleanup on failure
+      - name: Cleanup on failure
+        if: failure() || cancelled()
+        run: |
+          echo "🧹 Workflow failed or cancelled. Cleaning up..."
+          if [ -f kubeconfig ]; then
+            export KUBECONFIG=./kubeconfig
+            kubectl delete namespace development --grace-period=30 --timeout=120s || true
+          fi
+          terraform destroy -auto-approve \
+            -var "stage=${{ github.event.inputs.stage || 'dev' }}" \
+            -var-file="terraform.tfvars" \
+            -var "github_token=${{ secrets.REPO_ACCESS_TOKEN }}" || true
+
+      # Remove kubeconfig
       - name: Remove kubeconfig
         if: always()
         run: rm -f ./kubeconfig
