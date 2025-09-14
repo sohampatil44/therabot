@@ -221,7 +221,7 @@ jobs:
             echo "📁 Development namespace already exists"
           fi
 
-      # Validate k8s manifests
+      # Validate Kubernetes manifests
       - name: Validate Kubernetes manifests
         run: |
           export KUBECONFIG=./kubeconfig

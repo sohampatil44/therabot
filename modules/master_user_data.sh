@@ -65,7 +65,7 @@ if [[ -z "$MASTER_IP" || ! "$MASTER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; 
 fi
 
 # Method 5: Use network interface directly
-if [[ -z "$MASTER_IP" || ! "$MASTER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if [[ -z "$MASTER_IP" || ! "$MASTER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "ip route failed, checking network interfaces..."
     MASTER_IP=$(ip addr show $(ip route | awk '/default/ {print $5; exit}') 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1 | head -1 || echo "")
 fi
@@ -104,6 +104,24 @@ fi
 
 echo "✅ Successfully obtained master IP: $MASTER_IP"
 
+# Also fetch public IPv4 (if present) and use it for kubeconfig server endpoint so GitHub runners can connect
+MASTER_PUBLIC_IP=""
+# Try IMDSv2 public-ipv4
+if [[ -n "$TOKEN" ]]; then
+    MASTER_PUBLIC_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "")
+fi
+# fallback to IMDSv1
+if [[ -z "$MASTER_PUBLIC_IP" ]]; then
+    MASTER_PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "")
+fi
+
+if [[ -n "$MASTER_PUBLIC_IP" && "$MASTER_PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "✅ Found MASTER_PUBLIC_IP: $MASTER_PUBLIC_IP"
+else
+    echo "ℹ️ MASTER_PUBLIC_IP not found, will use private IP in kubeconfig (if only private exists)"
+    MASTER_PUBLIC_IP=""
+fi
+
 # -----------------------------
 # 5. INSTALL K3S MASTER
 # -----------------------------
@@ -127,17 +145,22 @@ while [ ! -f /var/lib/rancher/k3s/server/node-token ]; do
 done
 cp /var/lib/rancher/k3s/server/node-token /tmp/k3s_token
 
-# Copy and fix kubeconfig
+# Copy kubeconfig to home
 cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/kubeconfig
 chown ec2-user:ec2-user /home/ec2-user/kubeconfig
 
-# Replace localhost in kubeconfig with the master IP
-echo "Updating kubeconfig server endpoint from localhost to $MASTER_IP..."
-sed -i "s|https://127.0.0.1:6443|https://$MASTER_IP:6443|g" /home/ec2-user/kubeconfig
+# Replace localhost in kubeconfig with the PUBLIC IP if available, otherwise private IP
+if [[ -n "$MASTER_PUBLIC_IP" ]]; then
+    echo "Updating kubeconfig server endpoint from localhost to public IP $MASTER_PUBLIC_IP..."
+    sed -i "s|https://127.0.0.1:6443|https://$MASTER_PUBLIC_IP:6443|g" /home/ec2-user/kubeconfig
+else
+    echo "No public IP; using private IP $MASTER_IP in kubeconfig..."
+    sed -i "s|https://127.0.0.1:6443|https://$MASTER_IP:6443|g" /home/ec2-user/kubeconfig
+fi
 
 # Verify the kubeconfig was updated correctly
 echo "Verifying kubeconfig server endpoint:"
-grep "server:" /home/ec2-user/kubeconfig
+grep "server:" /home/ec2-user/kubeconfig || true
 
 # Test the updated kubeconfig works
 echo "Testing updated kubeconfig..."
@@ -260,6 +283,10 @@ kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig
 # 🎉 DONE
 echo "🎉 Master node initialization completed successfully!"
 echo "Master IP: $MASTER_IP"
-echo "Kubeconfig server: https://$MASTER_IP:6443"
+if [[ -n "$MASTER_PUBLIC_IP" ]]; then
+  echo "Kubeconfig server: https://$MASTER_PUBLIC_IP:6443"
+else
+  echo "Kubeconfig server: https://$MASTER_IP:6443"
+fi
 kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig
 kubectl get pods -A --kubeconfig /home/ec2-user/kubeconfig
