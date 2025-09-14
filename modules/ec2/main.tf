@@ -335,7 +335,8 @@ resource "aws_iam_role_policy" "k3s_master_policy" {
       Effect = "Allow"
       Action = [
         "ssm:PutParameter",
-        "ssm:GetParameter"
+        "ssm:GetParameter",
+        "ssm:DescribeParameters",
       ]
       Resource = "*"
     }]
