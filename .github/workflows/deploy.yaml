@@ -80,6 +80,7 @@ jobs:
             exit 1
           fi
           echo "ALB_DNS=$alb_dns" >> $GITHUB_ENV
+          echo "ALB DNS: $alb_dns"
 
       - name: Get EC2 public IP
         id: ec2_ip
@@ -88,11 +89,13 @@ jobs:
             --filters "Name=tag:Name,Values=k3s-master-asg" "Name=instance-state-name,Values=running" \
             --query "Reservations[*].Instances[*].PublicIpAddress" \
             --output text | tr -d '\r\n' | awk 'NF && $1!="None" {print $1; exit}')
+
+          echo "DEBUG: Raw IP fetched: '$ip'"
           
           if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "EC2_PUBLIC_IP=$ip" >> $GITHUB_ENV
             echo "ec2_public_ip=$ip" >> $GITHUB_OUTPUT
-            echo "Successfully found therabot-asg instance IP: $ip"
+            echo "✅ Successfully found therabot-asg instance IP: $ip"
           else
             echo "::error::Could not find valid therabot-asg instance IP address: '$ip'"
             exit 1
@@ -120,22 +123,29 @@ jobs:
           elapsed=0
           interval=15
 
+          # Debugging: Print EC2 public IP
+          echo "DEBUG: Using EC2_PUBLIC_IP='$EC2_PUBLIC_IP'"
+
           while [ $elapsed -lt $timeout ]; do
             kubeconfig_content=$(aws ssm get-parameter \
               --name "/therabot/kubeconfig" \
               --query "Parameter.Value" \
               --output text 2>/dev/null || echo "")
 
+            echo "DEBUG: kubeconfig_content length=${#kubeconfig_content}"
             if [ -n "$kubeconfig_content" ] && [ "$kubeconfig_content" != "None" ]; then
               echo "$kubeconfig_content" > kubeconfig
               chmod 600 kubeconfig
+              echo "DEBUG: kubeconfig saved to file"
 
               # Fix server endpoint if still pointing to localhost
               current_server=$(grep "server:" kubeconfig | awk '{print $2}')
+              echo "DEBUG: Current server in kubeconfig: $current_server"
+
               if [[ "$current_server" == *"127.0.0.1"* ]] || [[ "$current_server" == *"localhost"* ]]; then
-                if [[ -n "${{ env.EC2_PUBLIC_IP }}" ]]; then
-                  sed -i "s|https://127.0.0.1:6443|https://${{ env.EC2_PUBLIC_IP }}:6443|g" kubeconfig
-                  sed -i "s|https://localhost:6443|https://${{ env.EC2_PUBLIC_IP }}:6443|g" kubeconfig
+                if [[ -n "$EC2_PUBLIC_IP" ]]; then
+                  sed -i "s|https://127.0.0.1:6443|https://$EC2_PUBLIC_IP:6443|g" kubeconfig
+                  sed -i "s|https://localhost:6443|https://$EC2_PUBLIC_IP:6443|g" kubeconfig
                   echo "✅ Kubeconfig updated with public IP"
                 else
                   echo "❌ No EC2 public IP to fix kubeconfig"
@@ -144,11 +154,16 @@ jobs:
               fi
 
               export KUBECONFIG=./kubeconfig
+              echo "DEBUG: Testing kubectl connectivity..."
               if kubectl get nodes --request-timeout=30s >/dev/null 2>&1; then
                 echo "✅ k3s cluster is ready"
                 kubectl get nodes
                 break
+              else
+                echo "DEBUG: kubectl cannot reach cluster yet, retrying..."
               fi
+            else
+              echo "DEBUG: kubeconfig not yet available in SSM, retrying..."
             fi
 
             sleep $interval
