@@ -25,7 +25,7 @@ yum update -y
 # -----------------------------
 # 3. INSTALL TOOLS
 # -----------------------------
-yum install -y wget unzip jq amazon-ssm-agent python3 awscli
+yum install -y wget unzip jq amazon-ssm-agent python3 awscli nc
 systemctl enable amazon-ssm-agent
 systemctl start amazon-ssm-agent
 
@@ -125,7 +125,20 @@ fi
 # -----------------------------
 # 5. INSTALL K3S MASTER
 # -----------------------------
-curl -sfL https://get.k3s.io | sh -s - server --write-kubeconfig-mode 644 --kubelet-arg=fail-swap-on=false
+if [[ -n "$MASTER_PUBLIC_IP" ]]; then
+    curl -sfL https://get.k3s.io | sh -s - server \
+        --write-kubeconfig-mode 644 \
+        --kubelet-arg=fail-swap-on=false \
+        --tls-san "$MASTER_PUBLIC_IP" \
+        --bind-address "$MASTER_IP" \
+        --advertise-address "$MASTER_IP"
+else
+    curl -sfL https://get.k3s.io | sh -s - server \
+        --write-kubeconfig-mode 644 \
+        --kubelet-arg=fail-swap-on=false \
+        --bind-address "$MASTER_IP" \
+        --advertise-address "$MASTER_IP"
+fi
 
 # Wait until k3s API server is ready
 echo "Waiting for k3s API server to be ready..."
@@ -136,7 +149,7 @@ done
 echo "✅ API server ready"
 
 # -----------------------------
-# 6. SAVE K3S TOKEN & KUBECONFIG
+# 6. SAVE K3S TOKEN & KUBECONFIG (FIXED VERSION)
 # -----------------------------
 mkdir -p /var/lib/rancher/k3s/server
 while [ ! -f /var/lib/rancher/k3s/server/node-token ]; do
@@ -149,38 +162,102 @@ cp /var/lib/rancher/k3s/server/node-token /tmp/k3s_token
 cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/kubeconfig
 chown ec2-user:ec2-user /home/ec2-user/kubeconfig
 
-# Replace localhost in kubeconfig with the PUBLIC IP if available, otherwise private IP
-if [[ -n "$MASTER_PUBLIC_IP" ]]; then
+# FIXED: Replace localhost in kubeconfig with the PUBLIC IP if available, otherwise private IP
+if [[ -n "$MASTER_PUBLIC_IP" && "$MASTER_PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "Updating kubeconfig server endpoint from localhost to public IP $MASTER_PUBLIC_IP..."
     sed -i "s|https://127.0.0.1:6443|https://$MASTER_PUBLIC_IP:6443|g" /home/ec2-user/kubeconfig
+    # Also update any localhost references
+    sed -i "s|server: https://localhost:6443|server: https://$MASTER_PUBLIC_IP:6443|g" /home/ec2-user/kubeconfig
 else
-    echo "No public IP; using private IP $MASTER_IP in kubeconfig..."
+    echo "No valid public IP found; using private IP $MASTER_IP in kubeconfig..."
     sed -i "s|https://127.0.0.1:6443|https://$MASTER_IP:6443|g" /home/ec2-user/kubeconfig
+    sed -i "s|server: https://localhost:6443|server: https://$MASTER_IP:6443|g" /home/ec2-user/kubeconfig
 fi
 
 # Verify the kubeconfig was updated correctly
 echo "Verifying kubeconfig server endpoint:"
-grep "server:" /home/ec2-user/kubeconfig || true
+grep "server:" /home/ec2-user/kubeconfig
+
+# IMPORTANT: Wait a bit for the API server to bind to the public interface
+echo "Waiting 30 seconds for API server to fully initialize on public interface..."
+sleep 30
+
+# GitHub Actions workflow fix integrated here - Test and fix kubeconfig
+echo "🔧 Checking and fixing kubeconfig server endpoint..."
+
+# Show what we have
+echo "📄 Current kubeconfig server:"
+grep "server:" /home/ec2-user/kubeconfig || echo "No server line found"
+
+# If it still points to localhost/127.0.0.1, fix it
+current_server=$(grep "server:" /home/ec2-user/kubeconfig | awk '{print $2}' || echo "")
+echo "Current server: $current_server"
+
+if [[ "$current_server" == *"127.0.0.1"* ]] || [[ "$current_server" == *"localhost"* ]]; then
+    echo "⚠️ Kubeconfig still points to localhost, fixing with public IP..."
+    
+    # Replace with the public IP we found earlier
+    if [[ -n "$MASTER_PUBLIC_IP" ]]; then
+        echo "🔧 Updating kubeconfig to use public IP: $MASTER_PUBLIC_IP"
+        sed -i "s|https://127.0.0.1:6443|https://$MASTER_PUBLIC_IP:6443|g" /home/ec2-user/kubeconfig
+        sed -i "s|https://localhost:6443|https://$MASTER_PUBLIC_IP:6443|g" /home/ec2-user/kubeconfig
+        
+        echo "✅ Updated kubeconfig server:"
+        grep "server:" /home/ec2-user/kubeconfig
+    else
+        echo "❌ No public IP available to fix kubeconfig, using private IP"
+        sed -i "s|https://127.0.0.1:6443|https://$MASTER_IP:6443|g" /home/ec2-user/kubeconfig
+        sed -i "s|https://localhost:6443|https://$MASTER_IP:6443|g" /home/ec2-user/kubeconfig
+    fi
+else
+    echo "✅ Kubeconfig server endpoint looks correct"
+fi
 
 # Test the updated kubeconfig works
 echo "Testing updated kubeconfig..."
 max_attempts=10
 attempt=0
 while [ $attempt -lt $max_attempts ]; do
-    if kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig >/dev/null 2>&1; then
+    # Test with longer timeout and more verbose error reporting
+    if timeout 30 kubectl get nodes --kubeconfig /home/ec2-user/kubeconfig --v=2; then
         echo "✅ Updated kubeconfig works correctly"
         break
     else
         attempt=$((attempt + 1))
-        echo "Kubeconfig test failed, attempt $attempt/$max_attempts. Retrying in 10s..."
-        sleep 10
+        echo "❌ Kubeconfig test failed, attempt $attempt/$max_attempts."
+        
+        # Debug information
+        if [[ -n "$MASTER_PUBLIC_IP" ]]; then
+            echo "🔍 Testing connectivity to public IP $MASTER_PUBLIC_IP:6443..."
+            timeout 10 nc -zv "$MASTER_PUBLIC_IP" 6443 && echo "✅ Port is open" || echo "❌ Port not reachable"
+        fi
+        
+        # Test port connectivity
+        server_ip=$(grep 'server:' /home/ec2-user/kubeconfig | sed 's|.*https://||' | sed 's|:6443.*||')
+        if [[ -n "$server_ip" ]]; then
+            echo "🔍 Testing port connectivity to $server_ip:6443..."
+            timeout 10 nc -zv "$server_ip" 6443 || echo "❌ Port 6443 not reachable"
+        fi
+        
+        echo "Retrying in 15s..."
+        sleep 15
     fi
 done
 
 if [ $attempt -eq $max_attempts ]; then
-    echo "❌ Updated kubeconfig failed after $max_attempts attempts - falling back to original"
-    cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/kubeconfig
-    chown ec2-user:ec2-user /home/ec2-user/kubeconfig
+    echo "❌ Updated kubeconfig failed after $max_attempts attempts"
+    echo "🔍 Final debug information:"
+    echo "Public IP: $MASTER_PUBLIC_IP"
+    echo "Private IP: $MASTER_IP"
+    echo "Kubeconfig server:"
+    grep "server:" /home/ec2-user/kubeconfig
+    echo "K3s service status:"
+    systemctl status k3s
+    echo "K3s logs (last 20 lines):"
+    journalctl -u k3s --no-pager -n 20
+    
+    # Still save to SSM even if test fails - the GitHub Action can retry
+    echo "⚠️ Proceeding with SSM save despite test failure..."
 fi
 
 # -----------------------------

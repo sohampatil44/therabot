@@ -122,7 +122,7 @@ jobs:
           echo "${{ secrets.EC2_KEYPAIR_PRIVATE_KEY }}" > ~/.ssh/network-keypair.pem
           chmod 600 ~/.ssh/network-keypair.pem
 
-      # SIMPLIFIED AND FIXED VERSION
+      # COMPLETE VERSION WITH INTEGRATED KUBECONFIG FIX
       - name: Wait for k3s cluster initialization
         run: |
           echo "🔄 Waiting for k3s cluster (max 5 minutes)..."
@@ -153,19 +153,57 @@ jobs:
             if [ -n "$kubeconfig_content" ] && [ "$kubeconfig_content" != "None" ]; then
               echo "📄 Kubeconfig found in SSM (${#kubeconfig_content} chars)"
               
-              # Save and test it
+              # Save it
               echo "$kubeconfig_content" > kubeconfig
               chmod 600 kubeconfig
-              export KUBECONFIG=./kubeconfig
               
-              if kubectl get nodes --request-timeout=20s >/dev/null 2>&1; then
+              # INTEGRATED FIX: Check and fix kubeconfig server endpoint if needed
+              echo "🔧 Checking and fixing kubeconfig server endpoint..."
+              
+              # Show what we got from SSM
+              echo "📄 Original kubeconfig server:"
+              grep "server:" kubeconfig || echo "No server line found"
+              
+              # If it still points to localhost/127.0.0.1, fix it
+              current_server=$(grep "server:" kubeconfig | awk '{print $2}' || echo "")
+              echo "Current server: $current_server"
+              
+              if [[ "$current_server" == *"127.0.0.1"* ]] || [[ "$current_server" == *"localhost"* ]]; then
+                echo "⚠️ Kubeconfig still points to localhost, fixing with EC2 public IP..."
+                
+                # Replace with the EC2 public IP we found earlier
+                if [[ -n "${{ env.EC2_PUBLIC_IP }}" ]]; then
+                  echo "🔧 Updating kubeconfig to use public IP: ${{ env.EC2_PUBLIC_IP }}"
+                  sed -i "s|https://127.0.0.1:6443|https://${{ env.EC2_PUBLIC_IP }}:6443|g" kubeconfig
+                  sed -i "s|https://localhost:6443|https://${{ env.EC2_PUBLIC_IP }}:6443|g" kubeconfig
+                  
+                  echo "✅ Updated kubeconfig server:"
+                  grep "server:" kubeconfig
+                else
+                  echo "❌ No EC2 public IP available to fix kubeconfig"
+                  exit 1
+                fi
+              else
+                echo "✅ Kubeconfig server endpoint looks correct"
+              fi
+              
+              # Test the connection with more debugging
+              export KUBECONFIG=./kubeconfig
+              echo "🔍 Testing connection with verbose output..."
+              if kubectl get nodes --v=6 --request-timeout=30s >/dev/null 2>&1; then
                 echo "✅ k3s cluster is ready!"
                 kubectl get nodes
                 break
               else
-                echo "⚠️  Got kubeconfig but cluster not responding yet..."
-                echo "🔍 Server endpoint:"
-                grep "server:" kubeconfig || echo "No server found"
+                echo "❌ Connection test failed. Debug info:"
+                echo "Server endpoint: $(grep 'server:' kubeconfig)"
+                echo "Testing port connectivity:"
+                server_ip=$(grep 'server:' kubeconfig | sed 's|.*https://||' | sed 's|:6443.*||')
+                timeout 10 nc -zv "$server_ip" 6443 || echo "Port 6443 not reachable"
+                
+                # Show more debug info
+                echo "🔍 Server endpoint being used: $server_ip:6443"
+                echo "🔍 EC2 Public IP from env: ${{ env.EC2_PUBLIC_IP }}"
               fi
             else
               echo "⏳ Kubeconfig not found in SSM yet..."
