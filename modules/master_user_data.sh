@@ -130,15 +130,20 @@ if [[ -n "$MASTER_PUBLIC_IP" ]]; then
         --write-kubeconfig-mode 644 \
         --kubelet-arg=fail-swap-on=false \
         --tls-san "$MASTER_PUBLIC_IP" \
-        --bind-address "$MASTER_IP" \
+        --tls-san "$MASTER_IP" \
+        --tls-san "127.0.0.1" \
+        --bind-address "0.0.0.0" \
         --advertise-address "$MASTER_IP"
 else
     curl -sfL https://get.k3s.io | sh -s - server \
         --write-kubeconfig-mode 644 \
         --kubelet-arg=fail-swap-on=false \
-        --bind-address "$MASTER_IP" \
+        --tls-san "$MASTER_IP" \
+        --tls-san "127.0.0.1" \
+        --bind-address "0.0.0.0" \
         --advertise-address "$MASTER_IP"
 fi
+
 
 # Wait until k3s API server is ready
 echo "Waiting for k3s API server to be ready..."
