@@ -93,7 +93,7 @@ jobs:
         id: ec2_ip
         run: |
           ip=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=therabot-asg" "Name=instance-state-name,Values=running" \
+            --filters "Name=tag:Name,Values=k3s-master-asg" "Name=instance-state-name,Values=running" \
             --query "Reservations[*].Instances[*].PublicIpAddress" \
             --output text | tr -d '\r\n' | awk 'NF && $1!="None" {print $1; exit}')
           
@@ -213,7 +213,7 @@ jobs:
                 echo "🔍 Debug info:"
                 echo "EC2 instances:"
                 aws ec2 describe-instances \
-                  --filters "Name=tag:Name,Values=therabot-asg" "Name=instance-state-name,Values=running" \
+                  --filters "Name=tag:Name,Values=k3s-master-asg" "Name=instance-state-name,Values=running" \
                   --query "Reservations[*].Instances[*].[InstanceId,State.Name,LaunchTime]" \
                   --output table || echo "Failed to get instances"
               fi
@@ -233,7 +233,7 @@ jobs:
             
             echo "EC2 instance details:"
             aws ec2 describe-instances \
-              --filters "Name=tag:Name,Values=therabot-asg" \
+              --filters "Name=tag:Name,Values=k3s-master-asg" \
               --query "Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress,LaunchTime]" \
               --output table || echo "Failed to get instance details"
             
